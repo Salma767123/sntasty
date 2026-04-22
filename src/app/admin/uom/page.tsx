@@ -217,12 +217,6 @@ export default function UOMPage() {
                   >
                     <Edit2 size={16} />
                   </button>
-                  <button
-                    onClick={() => setDeleteId(uom._id)}
-                    className="w-10 h-10 bg-gray-50 rounded-xl flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all outline-none focus:ring-4 focus:ring-red-100 touch-manipulation"
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
 
                 <div className="mb-6 w-12 h-12 sm:w-16 sm:h-16 bg-primary/5 rounded-[1rem] sm:rounded-2xl flex items-center justify-center text-primary group-hover:scale-110 transition-transform">

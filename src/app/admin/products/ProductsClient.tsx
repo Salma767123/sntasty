@@ -18,6 +18,8 @@ import {
   AlertTriangle,
   Layers,
   DollarSign,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import ProductModal from "@/components/admin/ProductModal";
@@ -106,7 +108,27 @@ export default function ProductsClient({
       console.error("Failed to delete product", err);
       toast.error("An error occurred while deleting");
     } finally {
-      setDeleteId(null); // Close confirmation modal
+      setDeleteId(null);
+    }
+  };
+
+  const handleToggleActive = async (productId: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch(`/api/products/${productId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !currentStatus }),
+      });
+      if (res.ok) {
+        toast.success(!currentStatus ? "Product enabled" : "Product disabled");
+        setProducts((prev) =>
+          prev.map((p) => p._id === productId ? { ...p, isActive: !currentStatus } : p)
+        );
+      } else {
+        toast.error("Failed to update product status");
+      }
+    } catch (err) {
+      toast.error("An error occurred");
     }
   };
 
@@ -375,7 +397,11 @@ export default function ProductsClient({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ delay: i * 0.05 }}
-                  className="group bg-white rounded-2xl sm:rounded-[20px] p-3 sm:p-4 border border-gray-100 hover:border-[#f8bf51]/30 hover:shadow-lg hover:shadow-[#f8bf51]/5 transition-all duration-300 flex flex-row items-center gap-3 sm:gap-6 relative overflow-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation"
+                  className={`group bg-white rounded-2xl sm:rounded-[20px] p-3 sm:p-4 border hover:shadow-lg transition-all duration-300 flex flex-row items-center gap-3 sm:gap-6 relative overflow-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation ${
+                    p.isActive !== false
+                      ? "border-gray-100 hover:border-[#f8bf51]/30 hover:shadow-[#f8bf51]/5"
+                      : "border-red-100 bg-red-50/30 opacity-60"
+                  }`}
                 >
                   {/* Decoration Line */}
                   <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#234d1b] opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -437,7 +463,22 @@ export default function ProductsClient({
 
 
                       {/* Actions */}
-                      <div className="flex gap-1 sm:gap-2 shrink-0">
+                      <div className="flex gap-1 sm:gap-2 shrink-0 items-center">
+                        <button
+                          onClick={() => handleToggleActive(p._id, p.isActive !== false)}
+                          title={p.isActive !== false ? "Disable product" : "Enable product"}
+                          className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-colors border border-transparent focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation ${
+                            p.isActive !== false
+                              ? "text-green-500 hover:text-red-500 hover:bg-red-50"
+                              : "text-red-400 hover:text-green-500 hover:bg-green-50"
+                          }`}
+                        >
+                          {p.isActive !== false ? (
+                            <Eye size={14} className="sm:w-[18px] sm:h-[18px]" />
+                          ) : (
+                            <EyeOff size={14} className="sm:w-[18px] sm:h-[18px]" />
+                          )}
+                        </button>
                         <button
                           onClick={() => {
                             setEditingProduct(p);
