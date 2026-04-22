@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from "react";
 import toast from "react-hot-toast";
+import { authClient } from "@/lib/auth-client";
 
 interface WishlistItem {
   _id: string;
@@ -34,6 +35,7 @@ const WishlistContext = createContext<WishlistContextType | undefined>(undefined
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const isInitialLoad = useRef(true);
+  const { data: session } = authClient.useSession();
 
   // Load wishlist from localStorage on mount
   useEffect(() => {
@@ -56,6 +58,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   }, [wishlistItems]);
 
   const addToWishlist = (product: any) => {
+    if ((session?.user as any)?.role === "admin") {
+      toast.error("Admin cannot use wishlist");
+      return;
+    }
+
     const existing = wishlistItems.find((item) => item._id === product._id);
     if (existing) {
       toast.error("Already in wishlist!");
