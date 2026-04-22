@@ -59,7 +59,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-secondary/30 pt-20 pb-10">
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-secondary/30">
       {/* Decorative Blur Orbs */}
       <div className="absolute top-0 -left-20 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute bottom-0 -right-20 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
@@ -67,13 +67,13 @@ export default function RegisterPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md p-4 md:p-8 relative z-10"
+        className="w-full max-w-2xl p-4 md:p-8 relative z-10"
       >
-        <div className="glass-card p-6 md:p-10">
-          <div className="text-center mb-6 md:mb-10">
-            <Link href="/" className="inline-block mb-4 md:mb-6">
+        <div className="glass-card !rounded-2xl md:!rounded-3xl px-8 pb-8 pt-5 md:px-12 md:pb-12 md:pt-6">
+          <div className="text-center mb-4 md:mb-6">
+            <Link href="/" className="inline-block mb-2 md:mb-3">
               {settings?.logo ? (
-                <div className="h-14 md:h-20 w-48 md:w-64 relative mx-auto">
+                <div className="h-12 md:h-16 w-40 md:w-52 relative mx-auto">
                   <Image
                     src={settings.logo}
                     alt={settings.shopName || "Sai Nandhini"}
@@ -98,118 +98,122 @@ export default function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
-              <div className="bg-red-50 text-red-500 p-4 rounded-xl text-sm font-bold border border-red-100">
+              <div className="bg-red-50 text-red-500 p-4 rounded-xl text-sm font-bold border border-red-100 animate-shake">
                 {error}
               </div>
             )}
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                Full Name
-              </label>
-              <div className="relative">
-                <User
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => {
-                    setFormData({ ...formData, name: e.target.value });
-                    setFieldErrors(prev => ({ ...prev, name: "" }));
-                  }}
-                  className={`w-full bg-white/50 border ${fieldErrors.name ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-6 outline-none transition-all shadow-sm`}
-                  placeholder="John Doe"
-                />
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={18}
+                  />
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => {
+                      setFormData({ ...formData, name: e.target.value });
+                      setFieldErrors(prev => ({ ...prev, name: "" }));
+                    }}
+                    className={`w-full bg-white/50 border ${fieldErrors.name ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-6 outline-none transition-all shadow-sm`}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <FormError message={fieldErrors.name} />
               </div>
-              <FormError message={fieldErrors.name} />
-            </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                Email Address
-              </label>
-              <div className="relative">
-                <Mail
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  type="email"
-                  required
-                  value={formData.email}
-                  onChange={(e) => {
-                    setFormData({ ...formData, email: e.target.value });
-                    setFieldErrors(prev => ({ ...prev, email: "" }));
-                  }}
-                  className={`w-full bg-white/50 border ${fieldErrors.email ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-6 outline-none transition-all shadow-sm`}
-                  placeholder="name@example.com"
-                />
-              </div>
-              <FormError message={fieldErrors.email} />
-            </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                      size={18}
+                    />
+                    <input
+                      type="email"
+                      required
+                      value={formData.email}
+                      onChange={(e) => {
+                        setFormData({ ...formData, email: e.target.value });
+                        setFieldErrors(prev => ({ ...prev, email: "" }));
+                      }}
+                      className={`w-full bg-white/50 border ${fieldErrors.email ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-6 outline-none transition-all shadow-sm`}
+                      placeholder="name@example.com"
+                    />
+                  </div>
+                  <FormError message={fieldErrors.email} />
+                </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                Phone Number
-              </label>
-              <div className="relative">
-                <Phone
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => {
-                    setFormData({ ...formData, phone: e.target.value });
-                    setFieldErrors(prev => ({ ...prev, phone: "" }));
-                  }}
-                  className={`w-full bg-white/50 border ${fieldErrors.phone ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-6 outline-none transition-all shadow-sm`}
-                  placeholder="+91 98765 43210"
-                />
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                      size={18}
+                    />
+                    <input
+                      type="tel"
+                      required
+                      value={formData.phone}
+                      onChange={(e) => {
+                        setFormData({ ...formData, phone: e.target.value });
+                        setFieldErrors(prev => ({ ...prev, phone: "" }));
+                      }}
+                      className={`w-full bg-white/50 border ${fieldErrors.phone ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-6 outline-none transition-all shadow-sm`}
+                      placeholder="+91 98765 43210"
+                    />
+                  </div>
+                  <FormError message={fieldErrors.phone} />
+                </div>
               </div>
-              <FormError message={fieldErrors.phone} />
-            </div>
 
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
-                Password
-              </label>
-              <div className="relative">
-                <Lock
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={formData.password}
-                  onChange={(e) => {
-                    setFormData({ ...formData, password: e.target.value });
-                    setFieldErrors(prev => ({ ...prev, password: "" }));
-                  }}
-                  className={`w-full bg-white/50 border ${fieldErrors.password ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-12 outline-none transition-all shadow-sm`}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors focus:outline-none"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
+                  Password
+                </label>
+                <div className="relative">
+                  <Lock
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                    size={18}
+                  />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={formData.password}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value });
+                      setFieldErrors(prev => ({ ...prev, password: "" }));
+                    }}
+                    className={`w-full bg-white/50 border ${fieldErrors.password ? "border-red-300" : "border-transparent"} focus:border-primary/20 focus:bg-white rounded-2xl py-4 pl-12 pr-12 outline-none transition-all shadow-sm`}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-primary transition-colors focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <FormError message={fieldErrors.password} />
               </div>
-              <FormError message={fieldErrors.password} />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-white py-5 rounded-2xl font-bold text-lg hover:bg-primary-dark transition-all shadow-xl flex items-center justify-center gap-2 group active:scale-95 disabled:opacity-70 mt-4"
+              className="w-full bg-primary text-white py-4 rounded-2xl font-bold text-base hover:bg-primary-dark transition-all shadow-xl flex items-center justify-center gap-2 group active:scale-95 disabled:opacity-70"
             >
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
@@ -218,14 +222,14 @@ export default function RegisterPage() {
                   Create Account{" "}
                   <ArrowRight
                     className="group-hover:translate-x-1 transition-transform"
-                    size={18}
+                    size={20}
                   />
                 </>
               )}
             </button>
           </form>
 
-          <p className="text-center mt-6 md:mt-10 text-xs md:text-sm text-gray-500 font-medium">
+          <p className="text-center mt-10 text-sm text-gray-500 font-medium">
             Already have an account?{" "}
             <Link
               href="/login"

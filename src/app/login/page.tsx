@@ -61,7 +61,7 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-secondary/30 py-8">
+    <main className="min-h-screen flex items-center justify-center relative overflow-hidden bg-secondary/30 ">
       {/* Decorative Blur Orbs */}
       <div className="absolute top-0 -left-20 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
       <div className="absolute bottom-0 -right-20 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
@@ -71,7 +71,7 @@ export default function LoginPage() {
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-2xl p-4 md:p-8 relative z-10"
       >
-        <div className="glass-card !rounded-2xl md:!rounded-3xl p-8 md:p-12">
+        <div className="glass-card !rounded-2xl md:!rounded-3xl px-8 pb-8 pt-5 md:px-12 md:pb-12 md:pt-6">
           <div className="text-center mb-4 md:mb-6">
             <Link href="/" className="inline-block mb-2 md:mb-3">
               {settings?.logo ? (
