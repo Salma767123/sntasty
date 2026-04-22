@@ -69,7 +69,7 @@ export default function LoginPage() {
       <motion.div
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md p-4 md:p-8 relative z-10"
+        className="w-full max-w-lg p-4 md:p-8 relative z-10"
       >
         <div className="glass-card p-6 md:p-10">
           <div className="text-center mb-6 md:mb-10">

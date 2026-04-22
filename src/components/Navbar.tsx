@@ -237,9 +237,12 @@ export default function Navbar() {
                           ? "/profile"
                           : "/login"
                     }
-                    className="p-2 text-white/70 hover:text-[#f8bf51] transition-colors"
+                    className="p-2 text-white/70 hover:text-[#f8bf51] transition-colors flex items-center gap-1.5"
                   >
                     <User size={20} />
+                    <span className="hidden lg:inline text-xs font-bold truncate max-w-[80px]">
+                      {session.user.name?.split(" ")[0]}
+                    </span>
                   </Link>
                 ) : (
                   <Link
