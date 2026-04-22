@@ -247,33 +247,38 @@ export default function Navbar() {
                 ) : (
                   <Link
                     href="/login"
-                    className="p-2 text-white/70 hover:text-[#f8bf51] transition-colors"
+                    className="p-2 text-white/70 hover:text-[#f8bf51] transition-colors flex items-center gap-1.5"
                   >
                     <User size={20} />
+                    <span className="hidden lg:inline text-xs font-bold">Sign In</span>
                   </Link>
                 )}
-                <Link
-                  href="/wishlist"
-                  className="p-2 text-white/70 hover:text-[#f8bf51] relative group transition-colors"
-                >
-                  <Heart size={20} />
-                  {mounted && wishlistCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-[#f8bf51] text-[#234d1b] text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                      {wishlistCount}
-                    </span>
-                  )}
-                </Link>
-                <button
-                  onClick={() => setIsCartOpen(true)}
-                  className="p-2 text-white/70 hover:text-[#f8bf51] relative group transition-colors"
-                >
-                  <ShoppingCart size={20} />
-                  {mounted && cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-[#f8bf51] text-[#234d1b] text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
-                      {cartCount}
-                    </span>
-                  )}
-                </button>
+                {(!session || (session.user as any).role !== "admin") && (
+                  <>
+                    <Link
+                      href="/wishlist"
+                      className="p-2 text-white/70 hover:text-[#f8bf51] relative group transition-colors"
+                    >
+                      <Heart size={20} />
+                      {mounted && wishlistCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-[#f8bf51] text-[#234d1b] text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                          {wishlistCount}
+                        </span>
+                      )}
+                    </Link>
+                    <button
+                      onClick={() => setIsCartOpen(true)}
+                      className="p-2 text-white/70 hover:text-[#f8bf51] relative group transition-colors"
+                    >
+                      <ShoppingCart size={20} />
+                      {mounted && cartCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-[#f8bf51] text-[#234d1b] text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                          {cartCount}
+                        </span>
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -413,18 +418,20 @@ export default function Navbar() {
                       : "My Profile"
                     : "Login / Register"}
                 </Link>
-                <Link
-                  href="/wishlist"
-                  className="flex items-center gap-3 text-[#234d1b] font-bold"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Heart size={20} /> My Wishlist
-                  {mounted && wishlistCount > 0 && (
-                    <span className="bg-[#f8bf51] text-[#234d1b] text-xs font-bold px-2 py-1 rounded-full">
-                      {wishlistCount}
-                    </span>
-                  )}
-                </Link>
+                {(!session || (session.user as any).role !== "admin") && (
+                  <Link
+                    href="/wishlist"
+                    className="flex items-center gap-3 text-[#234d1b] font-bold"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Heart size={20} /> My Wishlist
+                    {mounted && wishlistCount > 0 && (
+                      <span className="bg-[#f8bf51] text-[#234d1b] text-xs font-bold px-2 py-1 rounded-full">
+                        {wishlistCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
                 <Link
                   href="/checkout"
                   className="flex items-center gap-3 text-[#234d1b] font-bold"

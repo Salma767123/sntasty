@@ -179,5 +179,16 @@ export function validateForm<T>(
       errors[path] = issue.message;
     }
   }
+
+  // Scroll to first error field after React re-renders the error messages
+  if (typeof window !== "undefined") {
+    setTimeout(() => {
+      const firstError = document.querySelector("[data-form-error]");
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 80);
+  }
+
   return { success: false, errors };
 }

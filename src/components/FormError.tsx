@@ -10,6 +10,7 @@ export default function FormError({ message }: { message?: string }) {
           initial={{ opacity: 0, y: -4 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
+          data-form-error
           className="text-red-500 text-xs font-semibold mt-1.5 ml-1"
         >
           {message}

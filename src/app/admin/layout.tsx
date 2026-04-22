@@ -285,7 +285,7 @@ function AdminLayoutInner({
         <div
           className={`flex items-center gap-3 mb-8 p-5 ${sidebarCollapsed ? "justify-center p-3" : ""}`}
         >
-          <div className={`${sidebarCollapsed ? "w-12 h-12" : "w-11 h-11"} bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg shrink-0 relative`}>
+          <Link href="/" className={`${sidebarCollapsed ? "w-12 h-12" : "w-11 h-11"} bg-white rounded-xl flex items-center justify-center overflow-hidden shadow-lg shrink-0 relative hover:scale-105 transition-transform`}>
             {settings?.logo ? (
               <Image
                 src={settings.logo}
@@ -297,7 +297,7 @@ function AdminLayoutInner({
             ) : (
               <span className="text-[#234d1b] font-black italic text-xs">SN</span>
             )}
-          </div>
+          </Link>
           {!sidebarCollapsed && (
             <motion.div
               initial={{ opacity: 0 }}
