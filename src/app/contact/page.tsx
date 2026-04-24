@@ -187,7 +187,7 @@ export default function ContactPage() {
           </div>
 
           {/* Contact Form */}
-          <div className="lg:col-span-8">
+          <div id="enquiry-form" className="lg:col-span-8 scroll-mt-32">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}

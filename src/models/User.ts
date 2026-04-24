@@ -17,6 +17,19 @@ const UserSchema = new Schema(
       pincode: String,
       state: String,
     },
+    savedAddresses: [
+      {
+        label: { type: String, default: "Home" },
+        fullName: { type: String, required: true },
+        email: { type: String },
+        phone: { type: String, required: true },
+        street: { type: String, required: true },
+        city: { type: String, required: true },
+        pincode: { type: String, required: true },
+        state: { type: String, required: true },
+        isDefault: { type: Boolean, default: false },
+      },
+    ],
   },
   {
     timestamps: true,

@@ -130,10 +130,10 @@ export default function ProductClient({
                     {product.badge}
                   </span>
                 )}
-                <span className="bg-accent/10 text-accent text-[10px] font-bold px-4 py-2 rounded-full uppercase tracking-wide inline-flex items-center gap-1.5">
+                {/* <span className="bg-accent/10 text-accent text-[10px] font-bold px-4 py-2 rounded-full uppercase tracking-wide inline-flex items-center gap-1.5">
                   <Clock size={12} />
                   Fresh Today
-                </span>
+                </span> */}
                 {!isOutOfStock && (
                   <span className="bg-green-50 text-green-600 text-[10px] font-bold px-4 py-2 rounded-full uppercase tracking-wide inline-flex items-center gap-1.5">
                     <CheckCircle2 size={12} />
@@ -202,8 +202,8 @@ export default function ProductClient({
                         setPrice(v.price);
                       }}
                       className={`px-6 py-3 rounded-xl text-sm font-bold uppercase tracking-wide border-2 transition-all duration-200 ${selectedVariant?.uom === v.uom
-                          ? "bg-primary border-primary text-white shadow-md"
-                          : "bg-white border-gray-200 text-gray-700 hover:border-primary/50"
+                        ? "bg-primary border-primary text-white shadow-md"
+                        : "bg-white border-gray-200 text-gray-700 hover:border-primary/50"
                         }`}
                     >
                       {v.uom}
@@ -250,8 +250,8 @@ export default function ProductClient({
                   }}
                   disabled={isOutOfStock}
                   className={`flex-grow px-8 py-3 rounded-xl font-bold uppercase tracking-wide text-sm transition-all duration-300 flex items-center justify-center gap-2 ${isOutOfStock
-                      ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-                      : "bg-primary text-white hover:bg-primary-dark shadow-lg hover:shadow-xl"
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                    : "bg-primary text-white hover:bg-primary-dark shadow-lg hover:shadow-xl"
                     }`}
                 >
                   <ShoppingCart size={18} />
@@ -264,8 +264,8 @@ export default function ProductClient({
                 onClick={() => !isOutOfStock && handleBuyNow()}
                 disabled={isOutOfStock}
                 className={`w-full py-4 rounded-xl font-bold uppercase tracking-wide text-sm transition-all duration-300 flex items-center justify-center gap-2 ${isOutOfStock
-                    ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                    : "bg-accent text-white hover:bg-accent-hover shadow-md hover:shadow-lg"
+                  ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                  : "bg-accent text-white hover:bg-accent-hover shadow-md hover:shadow-lg"
                   }`}
               >
                 <Zap size={18} fill={isOutOfStock ? "gray" : "white"} />
@@ -447,8 +447,8 @@ export default function ProductClient({
             }}
             disabled={isOutOfStock}
             className={`flex-grow font-bold uppercase tracking-wide text-xs py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 ${isOutOfStock
-                ? "bg-gray-200 text-gray-400"
-                : "bg-primary text-white"
+              ? "bg-gray-200 text-gray-400"
+              : "bg-primary text-white"
               }`}
           >
             {isOutOfStock ? (

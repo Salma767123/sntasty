@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import {
   Instagram,
   Facebook,
@@ -14,6 +15,15 @@ import { useNavbarData } from "@/context/NavbarDataContext";
 
 export default function Footer() {
   const { settings } = useNavbarData();
+  const pathname = usePathname();
+
+  const handleHashLink = (e: React.MouseEvent, link: string) => {
+    const [path, hash] = link.split("#");
+    if (hash && pathname === path) {
+      e.preventDefault();
+      document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -34,7 +44,7 @@ export default function Footer() {
         />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-16 border-b border-[#234d1b]/10 pb-16">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-8 mb-16 pb-16">
             {/* Column 1: Brand Info */}
             <div className="space-y-5">
               <Link href="/">
@@ -137,12 +147,13 @@ export default function Footer() {
                   { name: "Track Your Order", link: "/track" },
                   { name: "About Us", link: "/about" },
                   { name: "Contact Us", link: "/contact" },
-                  { name: "Bulk Enquiry", link: "/contact" },
-                  { name: "Combos", link: "/shop" },
+                  { name: "Bulk Enquiry", link: "/contact#enquiry-form" },
+
                 ].map((item) => (
                   <li key={item.name}>
                     <Link
                       href={item.link}
+                      onClick={(e) => handleHashLink(e, item.link)}
                       className="text-[#234d1b]/60 hover:text-[#3d7935] hover:pl-1 transition-all text-sm font-medium"
                     >
                       {item.name}
@@ -160,15 +171,16 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3 mb-8">
                 {[
-                  { name: "Customizable Packs", link: "/contact" },
-                  { name: "Personalized Branding", link: "/contact" },
-                  { name: "Bulk Orders", link: "/contact" },
-                  { name: "Corporate Gifting", link: "/contact" },
-                  { name: "Event Gifting", link: "/contact" },
+                  { name: "Customizable Packs", link: "/contact#enquiry-form" },
+                  { name: "Personalized Branding", link: "/contact#enquiry-form" },
+                  { name: "Bulk Orders", link: "/contact#enquiry-form" },
+                  { name: "Corporate Gifting", link: "/contact#enquiry-form" },
+                  { name: "Event Gifting", link: "/contact#enquiry-form" },
                 ].map((item) => (
                   <li key={item.name}>
                     <Link
                       href={item.link}
+                      onClick={(e) => handleHashLink(e, item.link)}
                       className="text-[#234d1b]/60 hover:text-[#3d7935] hover:pl-1 transition-all text-sm font-medium"
                     >
                       {item.name}

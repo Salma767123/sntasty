@@ -94,6 +94,34 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Save button for each tab
+function TabSaveButton({
+  saving,
+  onClick,
+  label,
+}: {
+  saving: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <div className="border-t border-gray-100 pt-6 mt-8 flex justify-end">
+      <button
+        onClick={onClick}
+        disabled={saving}
+        className="bg-primary text-white px-8 py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[10px] sm:text-xs flex items-center gap-3 shadow-lg hover:bg-primary-dark transition-all disabled:opacity-50 active:scale-[0.98] outline-none focus:ring-4 focus:ring-primary/10 touch-manipulation"
+      >
+        {saving ? (
+          <Loader2 className="animate-spin" size={16} />
+        ) : (
+          <Save size={16} />
+        )}
+        {saving ? "Saving..." : `Save ${label}`}
+      </button>
+    </div>
+  );
+}
+
 const INPUT_CLASS =
   "w-full rounded-xl border border-gray-200 bg-gray-50/80 text-gray-900 py-3 px-4 outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-shadow placeholder:text-gray-400 text-sm focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation";
 
@@ -179,17 +207,30 @@ export default function SettingsClient({
     }
   };
 
-  const handleSave = async () => {
-    const validation = validateForm(settingsBrandSchema, {
-      shopName: settings.shopName || "",
-      contactEmail: settings.contactEmail || "",
-      contactPhone: settings.contactPhone || "",
-    });
-    if (!validation.success) {
-      setFieldErrors(validation.errors);
-      setActiveTab("brand");
-      toast.error("Please fix the validation errors in Brand Identity.");
-      return;
+  const TAB_LABELS: Record<string, string> = {
+    brand: "Brand Identity",
+    payment: "Payment Gateway",
+    email: "Email Config",
+    seo: "SEO & Metadata",
+    reviews: "Google Reviews",
+    tracking: "Tracking Codes",
+  };
+
+  const handleSave = async (tab?: string) => {
+    const saveTab = tab || activeTab;
+
+    // Only validate brand fields when saving the brand tab
+    if (saveTab === "brand") {
+      const validation = validateForm(settingsBrandSchema, {
+        shopName: settings.shopName || "",
+        contactEmail: settings.contactEmail || "",
+        contactPhone: settings.contactPhone || "",
+      });
+      if (!validation.success) {
+        setFieldErrors(validation.errors);
+        toast.error("Please fix the validation errors.");
+        return;
+      }
     }
     setFieldErrors({});
     setSaving(true);
@@ -198,20 +239,20 @@ export default function SettingsClient({
       const res = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({ ...settings, _saveContext: saveTab }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        toast.success("Settings saved successfully");
-        setMessage("Settings saved successfully!");
+        toast.success(`${TAB_LABELS[saveTab] || "Settings"} saved successfully`);
+        setMessage(`${TAB_LABELS[saveTab] || "Settings"} saved successfully!`);
         // Refresh settings to get masked passwords back
         const refreshRes = await fetch("/api/admin/settings");
         const refreshedData = await refreshRes.json();
         setSettings(refreshedData);
       } else {
-        const errorMsg = data.error || "Failed to save settings";
+        const errorMsg = data.error || `Failed to save ${TAB_LABELS[saveTab] || "settings"}`;
         toast.error(errorMsg);
         setMessage(errorMsg);
       }
@@ -228,27 +269,13 @@ export default function SettingsClient({
   return (
     <div className="space-y-6 pb-20">
       {/* Header */}
-      <div className="bg-white p-5 sm:p-10 rounded-[1.5rem] sm:rounded-[3rem] shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between sm:items-center gap-4 sm:gap-6">
-        <div>
-          <h1 className="text-xl sm:text-3xl lg:text-4xl font-serif font-black text-primary-dark leading-none">
-            Configuration
-          </h1>
-          <p className="text-gray-400 mt-2 font-medium text-[10px] sm:text-sm">
-            Manage your store's global preferences and system settings.
-          </p>
-        </div>
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full sm:w-auto bg-primary text-white px-8 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest text-[10px] sm:text-xs flex items-center justify-center gap-3 shadow-lg hover:bg-primary-dark transition-all disabled:opacity-50 active:scale-[0.98] outline-none focus:ring-4 focus:ring-primary/10 touch-manipulation"
-        >
-          {saving ? (
-            <Loader2 className="animate-spin" size={16} />
-          ) : (
-            <Save size={16} />
-          )}
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
+      <div className="bg-white p-5 sm:p-10 rounded-[1.5rem] sm:rounded-[3rem] shadow-sm border border-gray-100">
+        <h1 className="text-xl sm:text-3xl lg:text-4xl font-serif font-black text-primary-dark leading-none">
+          Configuration
+        </h1>
+        <p className="text-gray-400 mt-2 font-medium text-[10px] sm:text-sm">
+          Manage your store's global preferences and system settings.
+        </p>
       </div>
 
       {/* Tabs Navigation */}
@@ -501,6 +528,7 @@ export default function SettingsClient({
                 </div>
 
 
+                <TabSaveButton saving={saving} onClick={() => handleSave("brand")} label="Brand Identity" />
               </div>
             </SettingsCard>
           )}
@@ -632,6 +660,8 @@ export default function SettingsClient({
                     </div>
                   </div>
                 </div>
+
+                <TabSaveButton saving={saving} onClick={() => handleSave("payment")} label="Payment Gateway" />
               </div>
             </SettingsCard>
           )}
@@ -722,6 +752,8 @@ export default function SettingsClient({
                     </button>
                   </div>
                 </div>
+
+                <TabSaveButton saving={saving} onClick={() => handleSave("email")} label="Email Config" />
               </div>
             </SettingsCard>
           )}
@@ -756,7 +788,7 @@ export default function SettingsClient({
                         <li>
                           Find your Place ID:{" "}
                           <a
-                            href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+                            href="/find-place-id"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="underline font-semibold"
@@ -809,7 +841,7 @@ export default function SettingsClient({
                     <p className="text-xs text-gray-500 mt-1.5">
                       Find your Place ID using the{" "}
                       <a
-                        href="https://developers.google.com/maps/documentation/javascript/examples/places-placeid-finder"
+                        href="/find-place-id"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary underline"
@@ -873,6 +905,8 @@ export default function SettingsClient({
                     </div>
                   </div>
                 </div>
+
+                <TabSaveButton saving={saving} onClick={() => handleSave("reviews")} label="Google Reviews" />
               </div>
             </SettingsCard>
           )}
@@ -1066,6 +1100,8 @@ export default function SettingsClient({
                     />
                   </div>
                 </div>
+
+                <TabSaveButton saving={saving} onClick={() => handleSave("seo")} label="SEO & Metadata" />
               </div>
             </SettingsCard>
           )}
@@ -1129,6 +1165,8 @@ export default function SettingsClient({
                     <p>Only paste trusted scripts from official sources (Facebook, Google, etc). Incorrect code may break your website. Changes take effect immediately after saving.</p>
                   </div>
                 </div>
+
+                <TabSaveButton saving={saving} onClick={() => handleSave("tracking")} label="Tracking Codes" />
               </div>
             </SettingsCard>
           )}

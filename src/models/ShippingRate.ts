@@ -7,10 +7,9 @@ if (models.ShippingRate) {
 
 const ShippingRateSchema = new Schema(
   {
-    location: { 
-      type: String, 
+    location: {
+      type: String,
       required: true,
-      enum: ["Tamil Nadu", "Puducherry", "Other States"],
       unique: true
     },
     rate: { type: Number, required: true, default: 0 }, // in currency

@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/mongodb";
 import Coupon from "@/models/Coupon";
+import Order from "@/models/Order";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 
 /**
  * POST /api/coupons/validate
  * Validate a coupon code and return discount details
+ * Supports both logged-in users (by userId) and guests (by email)
  */
 export async function POST(req: Request) {
   try {
-    const { code, orderAmount } = await req.json();
+    const { code, orderAmount, guestEmail } = await req.json();
 
     if (!code || orderAmount === undefined) {
       return NextResponse.json(
@@ -49,7 +51,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check usage limit
+    // Check global usage limit
     if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
       return NextResponse.json(
         { error: "Coupon usage limit reached" },
@@ -58,19 +60,38 @@ export async function POST(req: Request) {
     }
 
     // Check per-user limit
-    if (userId && coupon.perUserLimit) {
-      const userUsage = coupon.usedByUsers?.find(
-        (u: any) => u.userId.toString() === userId
-      );
-      const userCount = userUsage?.count || 0;
-
-      if (userCount >= coupon.perUserLimit) {
-        return NextResponse.json(
-          {
-            error: `You have already used this coupon ${coupon.perUserLimit} time${coupon.perUserLimit > 1 ? "s" : ""}`,
-          },
-          { status: 400 },
+    if (coupon.perUserLimit) {
+      if (userId) {
+        // Logged-in user: check by userId in coupon's usedByUsers
+        const userUsage = coupon.usedByUsers?.find(
+          (u: any) => u.userId.toString() === userId
         );
+        const userCount = userUsage?.count || 0;
+
+        if (userCount >= coupon.perUserLimit) {
+          return NextResponse.json(
+            {
+              error: `You have already used this coupon ${coupon.perUserLimit} time${coupon.perUserLimit > 1 ? "s" : ""}`,
+            },
+            { status: 400 },
+          );
+        }
+      } else if (guestEmail) {
+        // Guest user: count past paid orders with this email and coupon code
+        const guestUsageCount = await Order.countDocuments({
+          "shippingAddress.email": guestEmail.toLowerCase().trim(),
+          couponCode: code.toUpperCase().trim(),
+          isPaid: true,
+        });
+
+        if (guestUsageCount >= coupon.perUserLimit) {
+          return NextResponse.json(
+            {
+              error: `This coupon has already been used ${coupon.perUserLimit} time${coupon.perUserLimit > 1 ? "s" : ""} with this email`,
+            },
+            { status: 400 },
+          );
+        }
       }
     }
 

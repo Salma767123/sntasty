@@ -15,6 +15,7 @@ import {
   Upload,
   X,
   Pencil,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -407,7 +408,7 @@ export default function HeroSlidesPage() {
                   {/* Image Upload */}
                   <ImageUpload
                     label="Slide Image"
-                    hint="1920×1080px, landscape 16:9 — subject centred, dark background works best"
+                    hint="800×1000px, portrait 4:5 — subject centred, clean background works best"
                     value={editingSlide.image || ""}
                     onChange={(val) =>
                       setEditingSlide({ ...editingSlide, image: val as any })
@@ -416,8 +417,8 @@ export default function HeroSlidesPage() {
                   <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 -mt-1">
                     <ImageIcon size={14} className="text-amber-500 mt-0.5 shrink-0" />
                     <p className="text-[11px] text-amber-700 font-medium leading-relaxed">
-                      <span className="font-bold">Recommended size: 1920 × 1080 px</span> (16:9 landscape).
-                      Use a high-quality image with the subject centred and a dark background for best results.
+                      <span className="font-bold">Recommended size: 800 × 1000 px</span> (4:5 portrait).
+                      Use a high-quality image with the subject centred and a clean background for best results.
                     </p>
                   </div>
                   {fieldErrors.image && <FormError message={fieldErrors.image} />}
@@ -466,23 +467,26 @@ export default function HeroSlidesPage() {
                     <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                       Tag Badge
                     </label>
-                    <select
-                      value={editingSlide.tag}
-                      onChange={(e) =>
-                        setEditingSlide({
-                          ...editingSlide,
-                          tag: e.target.value,
-                        })
-                      }
-                      className={INPUT_CLASS}
-                    >
-                      <option value="Bestseller">Bestseller</option>
-                      <option value="New Arrival">New Arrival</option>
-                      <option value="Limited Edition">Limited Edition</option>
-                      <option value="Seasonal Special">Seasonal Special</option>
-                      <option value="Featured">Featured</option>
-                      <option value="Premium">Premium</option>
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={editingSlide.tag}
+                        onChange={(e) =>
+                          setEditingSlide({
+                            ...editingSlide,
+                            tag: e.target.value,
+                          })
+                        }
+                        className={`${INPUT_CLASS} appearance-none pr-10`}
+                      >
+                        <option value="Bestseller">Bestseller</option>
+                        <option value="New Arrival">New Arrival</option>
+                        <option value="Limited Edition">Limited Edition</option>
+                        <option value="Seasonal Special">Seasonal Special</option>
+                        <option value="Featured">Featured</option>
+                        <option value="Premium">Premium</option>
+                      </select>
+                      <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
                   </div>
 
                   {/* Description */}

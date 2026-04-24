@@ -152,6 +152,13 @@ export default function InvoiceClient({
       {/* Header */}
       <div className="flex justify-between items-start mb-12 border-b border-gray-200 pb-8">
         <div>
+          {settings?.logo && (
+            <img
+              src={settings.logo}
+              alt={settings.shopName || "Logo"}
+              className="h-16 w-auto object-contain mb-3"
+            />
+          )}
           <h1 className="text-4xl font-serif font-bold text-primary mb-2">
             {settings?.shopName?.split(" ").slice(0, 2).join(" ") ||
               "Sai Nandhini"}

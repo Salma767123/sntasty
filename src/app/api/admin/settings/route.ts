@@ -138,6 +138,10 @@ export async function POST(req: Request) {
 
     await connectDB();
 
+    // Determine which tab triggered the save
+    const saveContext = data._saveContext;
+    delete data._saveContext;
+
     // Handle Sensitive fields
     const existing = await Settings.findOne();
 
@@ -167,8 +171,9 @@ export async function POST(req: Request) {
       }
     }
 
-    // --- Validate Razorpay Credentials (only if credentials are being changed) ---
+    // --- Validate Razorpay Credentials (only when saving payment tab and credentials changed) ---
     if (
+      saveContext === "payment" &&
       razorpayCredentialsChanged &&
       data.payment?.razorpayKeyId &&
       data.payment?.razorpayKeySecret

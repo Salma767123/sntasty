@@ -252,7 +252,7 @@ export default function CmsClient({
               />
             </div>
           </div>
-          <ImageUploader section="aboutUs" field="heroImage" label="Hero Image" hint="1440×600px, landscape (16:6 ratio)" />
+          <ImageUploader section="aboutUs" field="heroImage" label="Hero Image" hint="800×800px, square format" />
         </div>
 
         <h2 className="text-lg font-black text-primary-dark uppercase tracking-tight border-b pb-4 pt-8">

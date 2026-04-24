@@ -16,6 +16,7 @@ import {
   ShoppingCart,
   X,
   Save,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -502,20 +503,23 @@ export default function CouponsClient({ initialData }: { initialData: any[] }) {
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
                           Discount Type
                         </label>
-                        <select
-                          value={currentCoupon.discountType}
-                          onChange={(e: any) =>
-                            setCurrentCoupon({
-                              ...currentCoupon,
-                              discountType: e.target.value,
-                            })
-                          }
-                          className="w-full bg-[#ece0cc] border-none focus:ring-2 focus:ring-primary/20 rounded-2xl py-4 px-6 outline-none transition-colors font-medium text-gray-700 appearance-none cursor-pointer"
-                        >
-                          <option value="percentage">Percentage (%)</option>
-                          <option value="fixed">Fixed Amount (₹)</option>
-                          <option value="free-delivery">Free Delivery</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={currentCoupon.discountType}
+                            onChange={(e: any) =>
+                              setCurrentCoupon({
+                                ...currentCoupon,
+                                discountType: e.target.value,
+                              })
+                            }
+                            className="w-full bg-[#ece0cc] border-none focus:ring-2 focus:ring-primary/20 rounded-2xl py-4 px-6 pr-12 outline-none transition-colors font-medium text-gray-700 appearance-none cursor-pointer"
+                          >
+                            <option value="percentage">Percentage (%)</option>
+                            <option value="fixed">Fixed Amount (₹)</option>
+                            <option value="free-delivery">Free Delivery</option>
+                          </select>
+                          <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
                       </div>
 
                       {currentCoupon.discountType !== "free-delivery" && (

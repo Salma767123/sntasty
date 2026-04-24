@@ -489,8 +489,8 @@ export default function OrdersClient({
                             {order.paymentMethod}
                           </span>
                         </div>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-2 py-0.5 rounded-md inline-block w-fit">
-                          Paid
+                        <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md inline-block w-fit ${order.isPaid ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                          {order.isPaid ? "Paid" : "Unpaid"}
                         </span>
                       </div>
                     </td>
@@ -583,8 +583,8 @@ export default function OrdersClient({
                   <span className="text-base font-black text-primary-dark tabular-nums">
                     ₹{order.totalPrice.toFixed(2)}
                   </span>
-                  <span className="text-[9px] font-black uppercase tracking-widest text-green-600 bg-green-50 px-2 py-0.5 rounded-md mt-1">
-                    Paid
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md mt-1 ${order.isPaid ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                    {order.isPaid ? "Paid" : "Unpaid"}
                   </span>
                   <p className="text-[8px] font-bold text-gray-300 uppercase mt-0.5">
                     {order.paymentMethod}
@@ -765,9 +765,13 @@ export default function OrdersClient({
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <CheckCircle2 className="text-green-600" size={24} />
-                      <span className="text-xl sm:text-2xl font-black uppercase tracking-widest text-green-600">
-                        Paid
+                      {viewingOrder.isPaid ? (
+                        <CheckCircle2 className="text-green-600" size={24} />
+                      ) : (
+                        <AlertCircle className="text-red-500" size={24} />
+                      )}
+                      <span className={`text-xl sm:text-2xl font-black uppercase tracking-widest ${viewingOrder.isPaid ? "text-green-600" : "text-red-500"}`}>
+                        {viewingOrder.isPaid ? "Paid" : "Unpaid"}
                       </span>
                     </div>
                     <p className="text-[10px] sm:text-xs text-gray-400 mt-2 font-black uppercase tracking-widest ml-1">

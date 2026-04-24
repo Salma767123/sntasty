@@ -11,7 +11,10 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
 
-    const query = status && status !== "All" ? { status } : {};
+    const query: any = { isPaid: true };
+    if (status && status !== "All") {
+      query.status = status;
+    }
     const orders = await Order.find(query).sort({ createdAt: -1 });
 
     return NextResponse.json(orders);

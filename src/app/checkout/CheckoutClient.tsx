@@ -25,6 +25,9 @@ import {
   Ticket,
   Package,
   IndianRupee,
+  ChevronDown,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -57,7 +60,7 @@ export default function CheckoutClient({
     street: "",
     city: "",
     pincode: "",
-    state: "", // Add state field for location-based shipping
+    state: "",
   });
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -71,6 +74,13 @@ export default function CheckoutClient({
     description?: string;
   } | null>(null);
 
+  // Saved addresses
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+  const [showAddressForm, setShowAddressForm] = useState(false);
+  const [saveAddress, setSaveAddress] = useState(true);
+  const [addressLabel, setAddressLabel] = useState("Home");
+
   // Redirect admin users away from checkout — admins should not use the customer flow
   useEffect(() => {
     if (!status && session?.user && (session.user as any).role === "admin") {
@@ -78,7 +88,7 @@ export default function CheckoutClient({
     }
   }, [session, status, router]);
 
-  // Auto-fill name/email only for non-admin customers
+  // Fetch saved addresses and auto-fill defaults
   useEffect(() => {
     if (session?.user && (session.user as any).role !== "admin") {
       setAddress((prev) => ({
@@ -86,55 +96,115 @@ export default function CheckoutClient({
         fullName: session.user?.name || "",
         email: session.user?.email || "",
       }));
+
+      // Fetch saved addresses
+      fetch("/api/user/addresses")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data) && data.length > 0) {
+            setSavedAddresses(data);
+            // Auto-select default address or first one
+            const defaultAddr = data.find((a: any) => a.isDefault) || data[0];
+            selectAddress(defaultAddr);
+          } else {
+            setShowAddressForm(true);
+          }
+        })
+        .catch(() => {
+          setShowAddressForm(true);
+        });
+    } else {
+      setShowAddressForm(true);
     }
   }, [session, status]);
 
+  const selectAddress = (addr: any) => {
+    setSelectedAddressId(addr._id);
+    setShowAddressForm(false);
+    setAddress({
+      fullName: addr.fullName,
+      email: addr.email || session?.user?.email || "",
+      phone: addr.phone,
+      street: addr.street,
+      city: addr.city,
+      pincode: addr.pincode,
+      state: addr.state,
+    });
+    setFieldErrors({});
+  };
+
+  const handleAddNewClick = () => {
+    setSelectedAddressId(null);
+    setShowAddressForm(true);
+    setAddress({
+      fullName: session?.user?.name || "",
+      email: session?.user?.email || "",
+      phone: "",
+      street: "",
+      city: "",
+      pincode: "",
+      state: "",
+    });
+    setFieldErrors({});
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    try {
+      const res = await fetch(`/api/user/addresses?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setSavedAddresses(data);
+        if (selectedAddressId === id) {
+          if (data.length > 0) {
+            selectAddress(data[0]);
+          } else {
+            handleAddNewClick();
+          }
+        }
+        toast.success("Address removed");
+      }
+    } catch {
+      toast.error("Failed to remove address");
+    }
+  };
+
   const itemsPrice = cartTotal;
+
+  // Find the matching shipping rate for a state (exact match first, then "Other States" fallback)
+  const findShippingRate = () => {
+    if (!initialShippingRates || !address.state) return null;
+
+    // Try exact state match first
+    const exactMatch = initialShippingRates.find(
+      (rate) => rate.location === address.state
+    );
+    if (exactMatch) return exactMatch;
+
+    // Fallback to "Other States" catch-all
+    return initialShippingRates.find(
+      (rate) => rate.location === "Other States"
+    ) || null;
+  };
 
   // Get estimated delivery time for selected location
   const getEstimatedDelivery = () => {
-    if (!initialShippingRates || !address.state) return null;
-
-    let shippingLocation = "Other States";
-    if (address.state === "Tamil Nadu") {
-      shippingLocation = "Tamil Nadu";
-    } else if (address.state === "Puducherry") {
-      shippingLocation = "Puducherry";
-    }
-
-    const applicableRate = initialShippingRates.find(
-      (rate) => rate.location === shippingLocation
-    );
-
-    return applicableRate?.estimatedDelivery || null;
+    return findShippingRate()?.estimatedDelivery || null;
   };
 
   // Dynamic Shipping Price Logic - Location Based
   const calculateShipping = () => {
     if (appliedCoupon?.isFreeDelivery) return 0;
 
-    // Check if we have location-based shipping configured
     if (initialShippingRates && initialShippingRates.length > 0 && address.state) {
-      // Map state to shipping location
-      let shippingLocation = "Other States";
-      if (address.state === "Tamil Nadu") {
-        shippingLocation = "Tamil Nadu";
-      } else if (address.state === "Puducherry") {
-        shippingLocation = "Puducherry";
-      }
+      const applicableRate = findShippingRate();
 
-      const applicableRate = initialShippingRates.find(
-        (rate) => rate.location === shippingLocation
-      );
-
-      // If rate found for this location, return it (0 means free delivery)
+      // If rate found, return it (0 means free delivery)
       if (applicableRate) return applicableRate.rate;
 
-      // If no rate found for this specific location, return null to indicate unavailable
+      // No rate found — shipping unavailable for this state
       return null;
     }
 
-    // If no state is selected, return null (shipping not calculated yet)
     return null;
   };
 
@@ -151,6 +221,10 @@ export default function CheckoutClient({
   );
 
   const applyCouponCode = async (code: string) => {
+    if (!session?.user && !address.email.trim()) {
+      toast.error("Please enter your email address before applying a coupon.");
+      return;
+    }
     try {
       setLoading(true);
       const res = await fetch("/api/coupons/validate", {
@@ -159,6 +233,7 @@ export default function CheckoutClient({
         body: JSON.stringify({
           code: code.trim(),
           orderAmount: itemsPrice,
+          guestEmail: !session?.user ? address.email : undefined,
         }),
       });
 
@@ -201,47 +276,40 @@ export default function CheckoutClient({
 
     setLoading(true);
     try {
-      // 1. Create Order in Database
-      const orderRes = await fetch("/api/orders", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orderItems: cartItems.map((item) => ({
-            productId: item._id,
-            name: item.name,
-            qty: item.qty,
-            image: item.image,
-            price: item.price,
-            uom: item.uom,
-          })),
-          shippingAddress: {
-            fullName: address.fullName,
-            email: address.email,
-            phone: address.phone,
-            address: address.street,
-            city: address.city,
-            pincode: address.pincode,
-            state: address.state,
-          },
-          paymentMethod: "Razorpay",
-          itemsPrice,
-          taxPrice: 0,
-          shippingPrice,
-          discountPrice: discountAmount,
-          totalPrice,
-          couponCode: appliedCoupon?.code || null,
-          discount: discountAmount,
-        }),
-      });
-      const dbOrder = await orderRes.json();
-      if (!orderRes.ok)
-        throw new Error(dbOrder.error || "Order creation failed");
+      // Prepare order data (will be sent to server only after payment succeeds)
+      const orderData = {
+        orderItems: cartItems.map((item) => ({
+          productId: item._id,
+          name: item.name,
+          qty: item.qty,
+          image: item.image,
+          price: item.price,
+          uom: item.uom,
+        })),
+        shippingAddress: {
+          fullName: address.fullName,
+          email: address.email,
+          phone: address.phone,
+          address: address.street,
+          city: address.city,
+          pincode: address.pincode,
+          state: address.state,
+        },
+        paymentMethod: "Razorpay",
+        itemsPrice,
+        taxPrice: 0,
+        shippingPrice,
+        discountPrice: discountAmount,
+        totalPrice,
+        couponCode: appliedCoupon?.code || null,
+        discount: discountAmount,
+      };
 
-      // Create Razorpay order
+      // 1. Create Razorpay order (no DB order yet)
       const payRes = await fetch("/api/payments/razorpay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: dbOrder._id }), // Send orderId, not amount
+        body: JSON.stringify({ amount: totalPrice }),
       });
       const rzpOrder = await payRes.json();
 
@@ -257,11 +325,12 @@ export default function CheckoutClient({
         toast.error(
           "Razorpay SDK failed to load. Please check your internet connection.",
         );
+        setLoading(false);
         return;
       }
 
       const options = {
-        key: rzpOrder.key, // Use key from backend response
+        key: rzpOrder.key,
         amount: rzpOrder.amount,
         currency: rzpOrder.currency,
         name: initialSettings?.shopName || "Sai Nandhini Tasty World",
@@ -270,25 +339,50 @@ export default function CheckoutClient({
           "Authentic South Indian Delicacies",
         order_id: rzpOrder.id,
         handler: async function (response: any) {
-          const verifyRes = await fetch("/api/payments/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-              orderId: dbOrder._id, // Pass the real MongoDB ID
-            }),
-          });
+          // Payment succeeded — verify and create order in DB
+          try {
+            const verifyRes = await fetch("/api/payments/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                orderData,
+              }),
+            });
 
-          if (verifyRes.ok) {
-            clearCart();
-            window.location.href = "/orders/success";
-          } else {
-            const verifyData = await verifyRes.json();
-            toast.error(
-              `Payment verification failed: ${verifyData.error || "Unknown error"}`,
-            );
+            if (verifyRes.ok) {
+              // Save address if user opted to and it's a new address
+              if (saveAddress && showAddressForm && session?.user) {
+                fetch("/api/user/addresses", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    label: addressLabel,
+                    fullName: address.fullName,
+                    email: address.email,
+                    phone: address.phone,
+                    street: address.street,
+                    city: address.city,
+                    pincode: address.pincode,
+                    state: address.state,
+                    isDefault: savedAddresses.length === 0,
+                  }),
+                }).catch(() => {});
+              }
+              clearCart();
+              window.location.href = "/orders/success";
+            } else {
+              const verifyData = await verifyRes.json();
+              toast.error(
+                `Payment verification failed: ${verifyData.error || "Unknown error"}`,
+              );
+              setLoading(false);
+            }
+          } catch (verifyErr) {
+            toast.error("Payment verification failed. Please contact support.");
+            setLoading(false);
           }
         },
         prefill: {
@@ -316,7 +410,6 @@ export default function CheckoutClient({
     } catch (err: any) {
       console.error("Checkout failed", err);
       toast.error("Checkout initialization failed: " + err.message);
-    } finally {
       setLoading(false);
     }
   };
@@ -422,7 +515,107 @@ export default function CheckoutClient({
                 </p>
               </div>
 
-              <form className="p-5 md:p-8 space-y-4 md:space-y-6">
+              <div className="p-5 md:p-8 space-y-4 md:space-y-6">
+                {/* Saved Addresses */}
+                {savedAddresses.length > 0 && (
+                  <div className="space-y-3">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                      Saved Addresses
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {savedAddresses.map((addr) => (
+                        <div
+                          key={addr._id}
+                          onClick={() => selectAddress(addr)}
+                          className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all group ${
+                            selectedAddressId === addr._id && !showAddressForm
+                              ? "border-primary bg-primary/5 shadow-md"
+                              : "border-gray-200 hover:border-primary/40 bg-gray-50"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                                selectedAddressId === addr._id && !showAddressForm
+                                  ? "border-primary"
+                                  : "border-gray-300"
+                              }`}>
+                                {selectedAddressId === addr._id && !showAddressForm && (
+                                  <div className="w-2 h-2 rounded-full bg-primary" />
+                                )}
+                              </div>
+                              <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md">
+                                {addr.label || "Home"}
+                              </span>
+                              {addr.isDefault && (
+                                <span className="text-[9px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded">
+                                  Default
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteAddress(addr._id);
+                              }}
+                              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-800 truncate">
+                            {addr.fullName}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">
+                            {addr.street}, {addr.city} - {addr.pincode}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {addr.state} | {addr.phone}
+                          </p>
+                        </div>
+                      ))}
+
+                      {/* Add New Address Card */}
+                      <div
+                        onClick={handleAddNewClick}
+                        className={`p-4 rounded-xl border-2 border-dashed cursor-pointer flex flex-col items-center justify-center gap-2 min-h-[120px] transition-all ${
+                          showAddressForm
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-300 hover:border-primary/40 bg-gray-50/50"
+                        }`}
+                      >
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                          showAddressForm ? "bg-primary text-white" : "bg-gray-200 text-gray-500"
+                        }`}>
+                          <Plus size={20} />
+                        </div>
+                        <span className="text-xs font-bold text-gray-500">
+                          Add New Address
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Address Form */}
+                <AnimatePresence mode="wait">
+                  {showAddressForm && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {savedAddresses.length > 0 && (
+                        <div className="border-t border-gray-100 pt-5 mb-4">
+                          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                            New Address Details
+                          </p>
+                        </div>
+                      )}
+
+              <form className="space-y-4 md:space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Full Name */}
                   <div className="md:col-span-2">
@@ -570,7 +763,7 @@ export default function CheckoutClient({
                           setAddress({ ...address, state: e.target.value });
                           setFieldErrors((prev) => ({ ...prev, state: "" }));
                         }}
-                        className={`w-full border-2 ${fieldErrors.state ? "border-red-300" : "border-gray-200"} rounded-xl py-3 pl-12 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm bg-gray-50 focus:bg-white appearance-none`}
+                        className={`w-full border-2 ${fieldErrors.state ? "border-red-300" : "border-gray-200"} rounded-xl py-3 pl-12 pr-10 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm bg-gray-50 focus:bg-white appearance-none`}
                       >
                         <option value="">Select State</option>
                         <option value="Andhra Pradesh">Andhra Pradesh</option>
@@ -610,11 +803,52 @@ export default function CheckoutClient({
                         <option value="Lakshadweep">Lakshadweep</option>
                         <option value="Puducherry">Puducherry</option>
                       </select>
+                      <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                       <FormError message={fieldErrors.state} />
                     </div>
                   </div>
                 </div>
+
+                {/* Save Address Option */}
+                {session?.user && (
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
+                    <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={saveAddress}
+                        onChange={(e) => setSaveAddress(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary/20 cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-gray-600">
+                        Save this address
+                      </span>
+                    </label>
+                    {saveAddress && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400">as</span>
+                        {["Home", "Office", "Other"].map((lbl) => (
+                          <button
+                            key={lbl}
+                            type="button"
+                            onClick={() => setAddressLabel(lbl)}
+                            className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all ${
+                              addressLabel === lbl
+                                ? "bg-primary text-white"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                            }`}
+                          >
+                            {lbl}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </form>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </motion.div>
 
             {/* Payment Method Card */}

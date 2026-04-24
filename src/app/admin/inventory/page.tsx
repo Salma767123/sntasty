@@ -17,6 +17,7 @@ import {
   ClipboardList,
   AlertCircle,
   Calendar,
+  ChevronDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -516,19 +517,22 @@ export default function InventoryPage() {
                               <label className="text-[10px] font-bold text-[#234d1b]/60 uppercase tracking-widest mb-1.5 block">
                                 Reason Code
                               </label>
-                              <select
-                                value={reason}
-                                onChange={(e) => setReason(e.target.value)}
-                                className={`w-full bg-white p-3 rounded-xl outline-none font-medium cursor-pointer transition-shadow focus-visible:ring-2 focus-visible:ring-[#f8bf51]/50 touch-manipulation ${fieldErrors.reason ? "ring-2 ring-red-300" : ""}`}
-                              >
-                                <option value="">Select Reason...</option>
-                                <option value="Damaged">
-                                  Damaged / Spoilage
-                                </option>
-                                <option value="Theft">Shrinkage / Theft</option>
-                                <option value="Audit">Audit Correction</option>
-                                <option value="Return">Customer Return</option>
-                              </select>
+                              <div className="relative">
+                                <select
+                                  value={reason}
+                                  onChange={(e) => setReason(e.target.value)}
+                                  className={`w-full bg-white p-3 pr-10 rounded-xl outline-none font-medium cursor-pointer appearance-none transition-shadow focus-visible:ring-2 focus-visible:ring-[#f8bf51]/50 touch-manipulation ${fieldErrors.reason ? "ring-2 ring-red-300" : ""}`}
+                                >
+                                  <option value="">Select Reason...</option>
+                                  <option value="Damaged">
+                                    Damaged / Spoilage
+                                  </option>
+                                  <option value="Theft">Shrinkage / Theft</option>
+                                  <option value="Audit">Audit Correction</option>
+                                  <option value="Return">Customer Return</option>
+                                </select>
+                                <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                              </div>
                               <FormError message={fieldErrors.reason} />
                             </div>
                           )}

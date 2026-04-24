@@ -33,6 +33,6 @@ export function decryptPassword(encryptedPassword: string): string {
     return decrypted;
   } catch (error) {
     console.error("Decryption error:", error);
-    return encryptedPassword;
+    return "";
   }
 }

@@ -3,11 +3,35 @@
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
-import { Lock, User as UserIcon, LogOut, CheckCircle2 } from "lucide-react";
-import { motion } from "framer-motion";
+import {
+  Lock,
+  User as UserIcon,
+  LogOut,
+  CheckCircle2,
+  MapPin,
+  Plus,
+  Trash2,
+  Pencil,
+  Home,
+  Building2,
+  Phone,
+  ChevronDown,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import { validateForm, passwordResetSchema, FieldErrors } from "@/lib/validations";
 import FormError from "@/components/FormError";
+
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu", "Delhi",
+  "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+];
 
 export default function ProfileClient() {
   const { data: session, isPending: status } = authClient.useSession();
@@ -19,6 +43,23 @@ export default function ProfileClient() {
   const [isLinking, setIsLinking] = useState(false);
   const [isGoogleLinked, setIsGoogleLinked] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Address state
+  const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
+  const [addressLoading, setAddressLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
+  const [savingAddress, setSavingAddress] = useState(false);
+  const [newAddress, setNewAddress] = useState({
+    label: "Home",
+    fullName: "",
+    phone: "",
+    street: "",
+    city: "",
+    pincode: "",
+    state: "",
+  });
+  const [addressErrors, setAddressErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
     if (!status && !session) {
@@ -38,13 +79,25 @@ export default function ProfileClient() {
           setIsGoogleLinked(linked);
         }
       } catch {
-        // Fallback: if user has a Google profile image, they signed in with Google
         if (session?.user?.image) {
           setIsGoogleLinked(true);
         }
       }
     };
     if (session) checkLinkedAccounts();
+  }, [session]);
+
+  // Fetch saved addresses
+  useEffect(() => {
+    if (session?.user) {
+      fetch("/api/user/addresses")
+        .then((res) => res.json())
+        .then((data) => {
+          if (Array.isArray(data)) setSavedAddresses(data);
+        })
+        .catch(() => {})
+        .finally(() => setAddressLoading(false));
+    }
   }, [session]);
 
   const handleSetPassword = async (e: React.FormEvent) => {
@@ -105,6 +158,83 @@ export default function ProfileClient() {
     }
   };
 
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Basic validation
+    const errors: FieldErrors = {};
+    if (!newAddress.fullName.trim()) errors.fullName = "Name is required";
+    if (!newAddress.phone.trim()) errors.phone = "Phone is required";
+    if (!newAddress.street.trim()) errors.street = "Street is required";
+    if (!newAddress.city.trim()) errors.city = "City is required";
+    if (!newAddress.pincode.trim()) errors.pincode = "Pincode is required";
+    else if (!/^\d{6}$/.test(newAddress.pincode)) errors.pincode = "Must be 6 digits";
+    if (!newAddress.state) errors.state = "State is required";
+
+    if (Object.keys(errors).length > 0) {
+      setAddressErrors(errors);
+      return;
+    }
+    setAddressErrors({});
+
+    setSavingAddress(true);
+    try {
+      const isEdit = !!editingAddressId;
+      const res = await fetch("/api/user/addresses", {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...newAddress,
+          ...(isEdit ? { id: editingAddressId } : {}),
+          email: session?.user?.email || "",
+          isDefault: !isEdit && savedAddresses.length === 0,
+        }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setSavedAddresses(data);
+        setShowAddForm(false);
+        setEditingAddressId(null);
+        setNewAddress({ label: "Home", fullName: "", phone: "", street: "", city: "", pincode: "", state: "" });
+        toast.success(isEdit ? "Address updated" : "Address saved");
+      } else {
+        toast.error(data.error || "Failed to save address");
+      }
+    } catch {
+      toast.error("Failed to save address");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleEditAddress = (addr: any) => {
+    setEditingAddressId(addr._id);
+    setShowAddForm(true);
+    setNewAddress({
+      label: addr.label || "Home",
+      fullName: addr.fullName,
+      phone: addr.phone,
+      street: addr.street,
+      city: addr.city,
+      pincode: addr.pincode,
+      state: addr.state,
+    });
+    setAddressErrors({});
+  };
+
+  const handleDeleteAddress = async (id: string) => {
+    try {
+      const res = await fetch(`/api/user/addresses?id=${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setSavedAddresses(data);
+        toast.success("Address removed");
+      }
+    } catch {
+      toast.error("Failed to remove address");
+    }
+  };
+
   if (status || !session) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-white to-secondary/30">
@@ -117,6 +247,8 @@ export default function ProfileClient() {
       </div>
     );
   }
+
+  const INPUT_CLASS = "w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-primary transition-colors focus:bg-white text-sm";
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-white to-secondary/30 flex flex-col">
@@ -173,7 +305,7 @@ export default function ProfileClient() {
             </p>
           </div>
 
-          {/* Google Link Status - inline */}
+          {/* Google Link Status */}
           <div className="sm:ml-auto flex items-center gap-3 shrink-0">
             <div className="w-8 h-8 bg-white shadow-sm border border-gray-100 rounded-full flex items-center justify-center shrink-0">
               <svg width="16" height="16" viewBox="0 0 24 24">
@@ -199,81 +331,383 @@ export default function ProfileClient() {
           </div>
         </motion.div>
 
-        {/* Security / Password Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white rounded-2xl p-5 md:p-8 shadow-sm border border-gray-100"
-        >
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-              <Lock size={18} />
+        <div className="space-y-6">
+          {/* Saved Addresses Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-2xl p-5 md:p-8 shadow-sm border border-gray-100"
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-primary-dark">
+                    Saved Addresses
+                  </h3>
+                  <p className="text-[10px] text-gray-500 font-medium">
+                    Manage your delivery addresses
+                  </p>
+                </div>
+              </div>
+              {!showAddForm && (
+                <button
+                  onClick={() => {
+                    setEditingAddressId(null);
+                    setShowAddForm(true);
+                    setNewAddress({
+                      label: "Home",
+                      fullName: session?.user?.name || "",
+                      phone: "",
+                      street: "",
+                      city: "",
+                      pincode: "",
+                      state: "",
+                    });
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-bold uppercase tracking-wider text-[10px] hover:bg-primary-dark transition-colors shadow-sm"
+                >
+                  <Plus size={14} /> Add Address
+                </button>
+              )}
             </div>
-            <div>
-              <h3 className="text-base font-bold text-primary-dark">
-                Account Security
-              </h3>
-              <p className="text-[10px] text-gray-500 font-medium">
-                Set or update your password
-              </p>
-            </div>
-          </div>
 
-          <form onSubmit={handleSetPassword} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
-                New Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setFieldErrors(prev => ({ ...prev, password: "" }));
-                }}
-                className={`w-full px-4 py-3 bg-gray-50 border ${fieldErrors.password ? "border-red-300" : "border-gray-200"} rounded-xl outline-none focus:border-primary transition-colors focus:bg-white text-sm`}
-                placeholder="Enter new password"
-                minLength={8}
-                required
-              />
-              <FormError message={fieldErrors.password} />
+            {/* Address Cards */}
+            {addressLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : savedAddresses.length === 0 && !showAddForm ? (
+              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-2xl">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <MapPin size={24} className="text-gray-400" />
+                </div>
+                <p className="text-sm font-semibold text-gray-500 mb-1">No saved addresses</p>
+                <p className="text-xs text-gray-400 mb-4">Add an address for faster checkout</p>
+                <button
+                  onClick={() => {
+                    setShowAddForm(true);
+                    setNewAddress({
+                      label: "Home",
+                      fullName: session?.user?.name || "",
+                      phone: "",
+                      street: "",
+                      city: "",
+                      pincode: "",
+                      state: "",
+                    });
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold uppercase tracking-wider text-[10px] hover:bg-primary-dark transition-colors"
+                >
+                  <Plus size={14} /> Add Your First Address
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {savedAddresses.map((addr) => (
+                  <div
+                    key={addr._id}
+                    className="relative p-5 rounded-xl border border-gray-200 bg-gray-50/50 group hover:border-primary/30 transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2.5 py-1 rounded-lg">
+                        {addr.label || "Home"}
+                      </span>
+                      {addr.isDefault && (
+                        <span className="text-[9px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-md border border-green-100">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm font-bold text-gray-800">
+                      {addr.fullName}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+                      {addr.street}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {addr.city} - {addr.pincode}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {addr.state}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-2 text-xs text-gray-400">
+                      <Phone size={12} />
+                      <span className="font-medium">{addr.phone}</span>
+                    </div>
+
+                    <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      <button
+                        onClick={() => handleEditAddress(addr)}
+                        className="p-2 text-gray-300 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAddress(addr._id)}
+                        className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Address Form */}
+            <AnimatePresence>
+              {showAddForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <form
+                    onSubmit={handleSaveAddress}
+                    className={`${savedAddresses.length > 0 ? "mt-6 pt-6 border-t border-gray-100" : ""}`}
+                  >
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">
+                      {editingAddressId ? "Edit Address" : "New Address"}
+                    </p>
+
+                    {/* Label Selector */}
+                    <div className="flex items-center gap-2 mb-5">
+                      <span className="text-xs text-gray-500 font-medium">Label:</span>
+                      {["Home", "Office", "Other"].map((lbl) => (
+                        <button
+                          key={lbl}
+                          type="button"
+                          onClick={() => setNewAddress({ ...newAddress, label: lbl })}
+                          className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                            newAddress.label === lbl
+                              ? "bg-primary text-white"
+                              : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                          }`}
+                        >
+                          {lbl === "Home" ? <Home size={12} /> : lbl === "Office" ? <Building2 size={12} /> : <MapPin size={12} />}
+                          {lbl}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                          Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={newAddress.fullName}
+                          onChange={(e) => {
+                            setNewAddress({ ...newAddress, fullName: e.target.value });
+                            setAddressErrors((prev) => ({ ...prev, fullName: "" }));
+                          }}
+                          className={`${INPUT_CLASS} ${addressErrors.fullName ? "border-red-300" : ""}`}
+                          placeholder="Receiver's full name"
+                        />
+                        <FormError message={addressErrors.fullName} />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                          Phone *
+                        </label>
+                        <input
+                          type="tel"
+                          value={newAddress.phone}
+                          onChange={(e) => {
+                            setNewAddress({ ...newAddress, phone: e.target.value });
+                            setAddressErrors((prev) => ({ ...prev, phone: "" }));
+                          }}
+                          className={`${INPUT_CLASS} ${addressErrors.phone ? "border-red-300" : ""}`}
+                          placeholder="+91 XXXXX XXXXX"
+                        />
+                        <FormError message={addressErrors.phone} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                          Street Address *
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={newAddress.street}
+                          onChange={(e) => {
+                            setNewAddress({ ...newAddress, street: e.target.value });
+                            setAddressErrors((prev) => ({ ...prev, street: "" }));
+                          }}
+                          className={`${INPUT_CLASS} resize-none ${addressErrors.street ? "border-red-300" : ""}`}
+                          placeholder="House number, building, street"
+                        />
+                        <FormError message={addressErrors.street} />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                          City *
+                        </label>
+                        <input
+                          type="text"
+                          value={newAddress.city}
+                          onChange={(e) => {
+                            setNewAddress({ ...newAddress, city: e.target.value });
+                            setAddressErrors((prev) => ({ ...prev, city: "" }));
+                          }}
+                          className={`${INPUT_CLASS} ${addressErrors.city ? "border-red-300" : ""}`}
+                          placeholder="City / Town"
+                        />
+                        <FormError message={addressErrors.city} />
+                      </div>
+                      <div>
+                        <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                          Pincode *
+                        </label>
+                        <input
+                          type="text"
+                          value={newAddress.pincode}
+                          onChange={(e) => {
+                            setNewAddress({ ...newAddress, pincode: e.target.value });
+                            setAddressErrors((prev) => ({ ...prev, pincode: "" }));
+                          }}
+                          className={`${INPUT_CLASS} ${addressErrors.pincode ? "border-red-300" : ""}`}
+                          placeholder="6-digit pincode"
+                          maxLength={6}
+                        />
+                        <FormError message={addressErrors.pincode} />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                          State *
+                        </label>
+                        <div className="relative">
+                          <select
+                            value={newAddress.state}
+                            onChange={(e) => {
+                              setNewAddress({ ...newAddress, state: e.target.value });
+                              setAddressErrors((prev) => ({ ...prev, state: "" }));
+                            }}
+                            className={`${INPUT_CLASS} appearance-none pr-10 cursor-pointer ${addressErrors.state ? "border-red-300" : ""}`}
+                          >
+                            <option value="">Select State</option>
+                            {INDIAN_STATES.map((s) => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                          <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                        </div>
+                        <FormError message={addressErrors.state} />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-5">
+                      <button
+                        type="submit"
+                        disabled={savingAddress}
+                        className="px-6 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-wider text-[10px] hover:bg-primary-dark transition-all shadow-sm disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {savingAddress ? (
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : (
+                          <CheckCircle2 size={14} />
+                        )}
+                        {editingAddressId ? "Update Address" : "Save Address"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddForm(false);
+                          setEditingAddressId(null);
+                          setAddressErrors({});
+                        }}
+                        className="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-bold uppercase tracking-wider text-[10px] hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+
+          {/* Security / Password Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-2xl p-5 md:p-8 shadow-sm border border-gray-100"
+          >
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                <Lock size={18} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary-dark">
+                  Account Security
+                </h3>
+                <p className="text-[10px] text-gray-500 font-medium">
+                  Set or update your password
+                </p>
+              </div>
             </div>
-            <div>
-              <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => {
-                  setConfirmPassword(e.target.value);
-                  setFieldErrors(prev => ({ ...prev, confirmPassword: "" }));
-                }}
-                className={`w-full px-4 py-3 bg-gray-50 border ${fieldErrors.confirmPassword ? "border-red-300" : "border-gray-200"} rounded-xl outline-none focus:border-primary transition-colors focus:bg-white text-sm`}
-                placeholder="Confirm new password"
-                minLength={8}
-                required
-              />
-              <FormError message={fieldErrors.confirmPassword} />
-            </div>
-            <div className="sm:col-span-2">
-              <button
-                type="submit"
-                disabled={isSubmitting || !password || !confirmPassword}
-                className="w-full sm:w-auto px-8 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-wider text-xs hover:bg-primary-dark transition-all shadow-md disabled:bg-gray-300 disabled:shadow-none flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle2 size={14} /> Update Password
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </motion.div>
+
+            <form onSubmit={handleSetPassword} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                  New Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setFieldErrors(prev => ({ ...prev, password: "" }));
+                  }}
+                  className={`${INPUT_CLASS} ${fieldErrors.password ? "border-red-300" : ""}`}
+                  placeholder="Enter new password"
+                  minLength={8}
+                  required
+                />
+                <FormError message={fieldErrors.password} />
+              </div>
+              <div>
+                <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setFieldErrors(prev => ({ ...prev, confirmPassword: "" }));
+                  }}
+                  className={`${INPUT_CLASS} ${fieldErrors.confirmPassword ? "border-red-300" : ""}`}
+                  placeholder="Confirm new password"
+                  minLength={8}
+                  required
+                />
+                <FormError message={fieldErrors.confirmPassword} />
+              </div>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !password || !confirmPassword}
+                  className="w-full sm:w-auto px-8 py-3 bg-primary text-white rounded-xl font-bold uppercase tracking-wider text-xs hover:bg-primary-dark transition-all shadow-md disabled:bg-gray-300 disabled:shadow-none flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={14} /> Update Password
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
       </div>
     </main>
   );

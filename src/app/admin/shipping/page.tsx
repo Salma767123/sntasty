@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Truck, Plus, Trash2, Save, Loader2, Package, MapPin, Edit2 } from "lucide-react";
+import { Truck, Plus, Trash2, Save, Loader2, Package, MapPin, Edit2, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
 import { validateForm, shippingRateSchema, FieldErrors } from "@/lib/validations";
 import FormError from "@/components/FormError";
@@ -13,7 +13,18 @@ interface ShippingRate {
   estimatedDelivery: string;
 }
 
-const LOCATIONS = ["Tamil Nadu", "Puducherry", "Other States"];
+const INDIAN_STATES = [
+  "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
+  "Goa", "Gujarat", "Haryana", "Himachal Pradesh", "Jharkhand", "Karnataka",
+  "Kerala", "Madhya Pradesh", "Maharashtra", "Manipur", "Meghalaya", "Mizoram",
+  "Nagaland", "Odisha", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu",
+  "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
+  "Andaman and Nicobar Islands", "Chandigarh",
+  "Dadra and Nagar Haveli and Daman and Diu", "Delhi",
+  "Jammu and Kashmir", "Ladakh", "Lakshadweep", "Puducherry",
+];
+
+const LOCATIONS = [...INDIAN_STATES, "Other States"];
 
 export default function ShippingManagementPage() {
   const [rates, setRates] = useState<ShippingRate[]>([]);
@@ -183,21 +194,24 @@ export default function ShippingManagementPage() {
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
                   Location
                 </label>
-                <select
-                  value={newRate.location}
-                  onChange={(e) => {
-                    setNewRate({ ...newRate, location: e.target.value });
-                    setFieldErrors((prev) => ({ ...prev, location: "" }));
-                  }}
-                  className={`w-full bg-gray-50 border ${fieldErrors.location ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-4 focus:ring-primary/5 touch-manipulation`}
-                >
-                  <option value="">Select location</option>
-                  {availableLocations.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={newRate.location}
+                    onChange={(e) => {
+                      setNewRate({ ...newRate, location: e.target.value });
+                      setFieldErrors((prev) => ({ ...prev, location: "" }));
+                    }}
+                    className={`w-full bg-gray-50 border ${fieldErrors.location ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 pr-10 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-4 focus:ring-primary/5 appearance-none touch-manipulation`}
+                  >
+                    <option value="">Select location</option>
+                    {availableLocations.map((loc) => (
+                      <option key={loc} value={loc}>
+                        {loc}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
                 <FormError message={fieldErrors.location} />
               </div>
 

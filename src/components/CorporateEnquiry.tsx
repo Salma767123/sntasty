@@ -9,6 +9,7 @@ import {
   Briefcase,
   CheckCircle2,
   Sparkles,
+  ChevronDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { validateForm, corporateEnquirySchema, FieldErrors } from "@/lib/validations";
@@ -264,19 +265,22 @@ export default function CorporateEnquiry() {
                   <label className="text-xs font-bold text-[#234d1b]/40 mb-1.5 block uppercase tracking-wide">
                     Type
                   </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => {
-                      setFormData({ ...formData, type: e.target.value });
-                      setFieldErrors(prev => ({ ...prev, type: "" }));
-                    }}
-                    className={`${inputClass} appearance-none cursor-pointer ${fieldErrors.type ? "border-red-300" : ""}`}
-                  >
-                    <option>Corporate Booking</option>
-                    <option>Event Catering</option>
-                    <option>Bulk Order</option>
-                    <option>Other</option>
-                  </select>
+                  <div className="relative">
+                    <select
+                      value={formData.type}
+                      onChange={(e) => {
+                        setFormData({ ...formData, type: e.target.value });
+                        setFieldErrors(prev => ({ ...prev, type: "" }));
+                      }}
+                      className={`${inputClass} appearance-none cursor-pointer pr-10 ${fieldErrors.type ? "border-red-300" : ""}`}
+                    >
+                      <option>Corporate Booking</option>
+                      <option>Event Catering</option>
+                      <option>Bulk Order</option>
+                      <option>Other</option>
+                    </select>
+                    <ChevronDown size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#234d1b]/40 pointer-events-none" />
+                  </div>
                   <FormError message={fieldErrors.type} />
                 </div>
               </div>
