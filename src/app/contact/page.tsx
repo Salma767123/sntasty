@@ -177,12 +177,6 @@ export default function ContactPage() {
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => setActiveTab("corporate")}
-                className="text-xs font-bold uppercase tracking-widest text-accent hover:underline"
-              >
-                Request Quote →
-              </button>
             </div>
           </div>
 

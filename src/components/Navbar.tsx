@@ -303,10 +303,10 @@ export default function Navbar() {
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
               className="fixed left-0 top-0 bottom-0 w-[80%] max-w-sm bg-white z-[70] p-8 flex flex-col"
             >
-              <div className="flex justify-between items-center mb-12">
-                <div className="flex flex-col">
+              <div className="flex justify-between items-center mb-12 gap-3">
+                <div className="flex flex-col min-w-0 flex-1">
                   {settings?.logo ? (
-                    <div className="h-16 w-64 relative mb-2">
+                    <div className="h-14 w-44 relative mb-2">
                       <Image
                         src={settings.logo}
                         alt={settings.shopName || "Sai Nandhini"}
@@ -329,7 +329,7 @@ export default function Navbar() {
                 </div>
                 <button
                   onClick={() => setIsMenuOpen(false)}
-                  className="p-2 text-gray-400 hover:text-[#234d1b] transition-colors"
+                  className="p-2 text-gray-400 hover:text-[#234d1b] transition-colors shrink-0"
                 >
                   <X size={24} />
                 </button>
@@ -350,13 +350,6 @@ export default function Navbar() {
                     Shop All
                   </Link>
                   <Link
-                    href="/shop?category=Combos"
-                    className="block text-xl font-bold text-[#234d1b]"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Combo Offers
-                  </Link>
-                  <Link
                     href="/about"
                     className={`block text-xl font-bold ${
                       isActive("/about") ? "text-[#f8bf51]" : "text-[#234d1b]"
@@ -372,7 +365,7 @@ export default function Navbar() {
                     }`}
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Corporate Orders
+                    Contact Us
                   </Link>
                 </div>
 
