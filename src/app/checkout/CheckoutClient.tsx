@@ -268,6 +268,25 @@ export default function CheckoutClient({
     }
     setFieldErrors({});
 
+    // If guest, check if email belongs to a registered user
+    if (!session?.user && address.email) {
+      try {
+        const checkRes = await fetch("/api/auth/check-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: address.email.trim() }),
+        });
+        const checkData = await checkRes.json();
+        if (checkData.exists) {
+          toast.error("You already have an account with this email. Please login for a better experience!", { duration: 5000 });
+          router.push(`/login?callbackUrl=/checkout`);
+          return;
+        }
+      } catch {
+        // If check fails, allow guest checkout to continue
+      }
+    }
+
     // Check if shipping is available for selected location
     if (!isShippingAvailable) {
       toast.error(`Sorry, we don't deliver to ${address.state} yet. Please select a different state or contact us.`);
