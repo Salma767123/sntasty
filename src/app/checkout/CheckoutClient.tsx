@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Plus,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -78,6 +79,7 @@ export default function CheckoutClient({
   const [savedAddresses, setSavedAddresses] = useState<any[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddressForm, setShowAddressForm] = useState(false);
+  const [editingAddressId, setEditingAddressId] = useState<string | null>(null);
   const [saveAddress, setSaveAddress] = useState(true);
   const [addressLabel, setAddressLabel] = useState("Home");
 
@@ -135,6 +137,7 @@ export default function CheckoutClient({
 
   const handleAddNewClick = () => {
     setSelectedAddressId(null);
+    setEditingAddressId(null);
     setShowAddressForm(true);
     setAddress({
       fullName: session?.user?.name || "",
@@ -165,6 +168,54 @@ export default function CheckoutClient({
       }
     } catch {
       toast.error("Failed to remove address");
+    }
+  };
+
+  const handleEditAddress = (addr: any) => {
+    setEditingAddressId(addr._id);
+    setSelectedAddressId(null);
+    setShowAddressForm(true);
+    setAddressLabel(addr.label || "Home");
+    setAddress({
+      fullName: addr.fullName,
+      email: addr.email || session?.user?.email || "",
+      phone: addr.phone,
+      street: addr.street,
+      city: addr.city,
+      pincode: addr.pincode,
+      state: addr.state,
+    });
+    setFieldErrors({});
+  };
+
+  const handleSaveEditedAddress = async () => {
+    if (!editingAddressId) return;
+    try {
+      const res = await fetch("/api/user/addresses", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingAddressId,
+          label: addressLabel,
+          fullName: address.fullName,
+          email: address.email,
+          phone: address.phone,
+          street: address.street,
+          city: address.city,
+          pincode: address.pincode,
+          state: address.state,
+        }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setSavedAddresses(data);
+        const updated = data.find((a: any) => a._id === editingAddressId);
+        if (updated) selectAddress(updated);
+        setEditingAddressId(null);
+        toast.success("Address updated");
+      }
+    } catch {
+      toast.error("Failed to update address");
     }
   };
 
@@ -572,16 +623,28 @@ export default function CheckoutClient({
                                 </span>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteAddress(addr._id);
-                              }}
-                              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEditAddress(addr);
+                                }}
+                                className="p-1.5 text-gray-300 hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                              >
+                                <Pencil size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteAddress(addr._id);
+                                }}
+                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
                           <p className="text-sm font-semibold text-gray-800 truncate">
                             {addr.fullName}
@@ -627,10 +690,19 @@ export default function CheckoutClient({
                       transition={{ duration: 0.2 }}
                     >
                       {savedAddresses.length > 0 && (
-                        <div className="border-t border-gray-100 pt-5 mb-4">
+                        <div className="border-t border-gray-100 pt-5 mb-4 flex items-center justify-between">
                           <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                            New Address Details
+                            {editingAddressId ? "Edit Address" : "New Address Details"}
                           </p>
+                          {editingAddressId && (
+                            <button
+                              type="button"
+                              onClick={handleSaveEditedAddress}
+                              className="text-[10px] font-bold uppercase tracking-wider px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+                            >
+                              Update Address
+                            </button>
+                          )}
                         </div>
                       )}
 
@@ -829,7 +901,7 @@ export default function CheckoutClient({
                 </div>
 
                 {/* Save Address Option */}
-                {session?.user && (
+                {session?.user && !editingAddressId && (
                   <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-2">
                     <label className="flex items-center gap-2.5 cursor-pointer select-none">
                       <input
