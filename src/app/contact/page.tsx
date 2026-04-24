@@ -157,27 +157,6 @@ export default function ContactPage() {
               </motion.div>
             ))}
 
-            {/* Corporate Services Info */}
-            <div className="bg-primary-dark p-8 rounded-[2.5rem] text-white relative overflow-hidden">
-              <MessageSquare className="absolute -bottom-4 -right-4 w-32 h-32 text-white/5" />
-              <h3 className="text-xl font-serif font-bold mb-4">
-                Corporate & Events
-              </h3>
-              <div className="space-y-3 mb-6">
-                {[
-                  { icon: Briefcase, text: "Corporate Gifting" },
-                  { icon: Users, text: "Large Gatherings" },
-                  { icon: Calendar, text: "Festival Specials" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 text-sm">
-                    <item.icon size={16} className="text-accent" />
-                    <span className="text-white/80 font-medium">
-                      {item.text}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
 
           {/* Contact Form */}

@@ -5,7 +5,7 @@ import Page from "@/models/Page";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { notFound } from "next/navigation";
-import { Calendar, FileText, Shield } from "lucide-react";
+import { Calendar, FileText, Shield, Lock, RotateCcw, Truck, ScrollText } from "lucide-react";
 
 // Force dynamic rendering to avoid build-time database timeouts
 export const dynamic = "force-dynamic";
@@ -47,6 +47,14 @@ export default async function LegalPage({ params }: PageProps) {
     notFound();
   }
 
+  const iconMap: Record<string, any> = {
+    privacy: Lock,
+    terms: ScrollText,
+    returns: RotateCcw,
+    shipping: Truck,
+  };
+  const PageIcon = iconMap[slug] || FileText;
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
       <Navbar />
@@ -55,7 +63,7 @@ export default async function LegalPage({ params }: PageProps) {
       <div className="pt-44 pb-12 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/5 to-accent/5">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white rounded-2xl shadow-lg mb-6">
-            <Shield className="text-primary" size={32} />
+            <PageIcon className="text-primary" size={32} />
           </div>
           <h1 className="text-4xl md:text-5xl font-bold text-primary-dark mb-4">
             {page.title}

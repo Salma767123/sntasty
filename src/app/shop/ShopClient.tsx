@@ -340,8 +340,8 @@ export default function ShopClient({
                         max={priceRange[1]}
                         value={priceRange[0]}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value) || 0;
-                          setPriceRange([Math.min(val, priceRange[1]), priceRange[1]]);
+                          const val = e.target.value === "" ? 0 : parseInt(e.target.value);
+                          if (!isNaN(val)) setPriceRange([Math.min(val, priceRange[1]), priceRange[1]]);
                         }}
                         className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-xs font-bold text-primary-dark focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all"
                         placeholder="0"
@@ -362,8 +362,8 @@ export default function ShopClient({
                         max="10000"
                         value={priceRange[1]}
                         onChange={(e) => {
-                          const val = parseInt(e.target.value) || 2000;
-                          setPriceRange([priceRange[0], Math.max(val, priceRange[0])]);
+                          const val = e.target.value === "" ? 0 : parseInt(e.target.value);
+                          if (!isNaN(val)) setPriceRange([priceRange[0], Math.max(val, priceRange[0])]);
                         }}
                         className="w-full pl-7 pr-3 py-2 border border-gray-200 rounded-lg text-xs font-bold text-primary-dark focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none transition-all"
                         placeholder="2000"

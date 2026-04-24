@@ -16,6 +16,8 @@ import {
   Building2,
   Phone,
   ChevronDown,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
@@ -39,6 +41,8 @@ export default function ProfileClient() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLinking, setIsLinking] = useState(false);
   const [isGoogleLinked, setIsGoogleLinked] = useState(false);
@@ -658,36 +662,54 @@ export default function ProfileClient() {
                 <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
                   New Password
                 </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setFieldErrors(prev => ({ ...prev, password: "" }));
-                  }}
-                  className={`${INPUT_CLASS} ${fieldErrors.password ? "border-red-300" : ""}`}
-                  placeholder="Enter new password"
-                  minLength={8}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setFieldErrors(prev => ({ ...prev, password: "" }));
+                    }}
+                    className={`${INPUT_CLASS} pr-12 ${fieldErrors.password ? "border-red-300" : ""}`}
+                    placeholder="Enter new password"
+                    minLength={8}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
                 <FormError message={fieldErrors.password} />
               </div>
               <div>
                 <label className="block font-bold text-[#234d1b]/70 mb-1.5 uppercase tracking-widest text-[10px]">
                   Confirm Password
                 </label>
-                <input
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => {
-                    setConfirmPassword(e.target.value);
-                    setFieldErrors(prev => ({ ...prev, confirmPassword: "" }));
-                  }}
-                  className={`${INPUT_CLASS} ${fieldErrors.confirmPassword ? "border-red-300" : ""}`}
-                  placeholder="Confirm new password"
-                  minLength={8}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setFieldErrors(prev => ({ ...prev, confirmPassword: "" }));
+                    }}
+                    className={`${INPUT_CLASS} pr-12 ${fieldErrors.confirmPassword ? "border-red-300" : ""}`}
+                    placeholder="Confirm new password"
+                    minLength={8}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
                 <FormError message={fieldErrors.confirmPassword} />
               </div>
               <div className="sm:col-span-2">
