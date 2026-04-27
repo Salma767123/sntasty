@@ -741,8 +741,7 @@ interface ResolvedSettings {
 
 function resolveSettings(settings: ShopSettings | undefined): ResolvedSettings {
   const shopName = settings?.shopName || "Sai Nandhini Tasty World";
-  const words = shopName.trim().split(/\s+/);
-  const logoText = words.slice(0, 2).join(" ");
+  const logoText = shopName;
 
   return {
     shopName,
