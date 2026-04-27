@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import Script from "next/script";
 import { Poppins, Baloo_2, Geist } from "next/font/google";
 import "./globals.css";
 import connectDB from "@/lib/mongodb";
@@ -102,9 +101,7 @@ const getNavbarData = unstable_cache(
 
 function TrackingScript({ code }: { code: string }) {
   return (
-    <Script
-      id="tracking-head-code"
-      strategy="afterInteractive"
+    <div
       dangerouslySetInnerHTML={{ __html: code }}
     />
   );
