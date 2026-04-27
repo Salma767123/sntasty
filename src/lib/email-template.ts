@@ -117,6 +117,7 @@ function buildStatusConfig(
   statusMessage: string | undefined,
   formattedTotal: string,
   formattedDate: string,
+  shopName: string = "Sai Nandhini",
 ): StatusConfig {
   // Default (Pending / Processing / Confirmed)
   const base: StatusConfig = {
@@ -143,7 +144,7 @@ function buildStatusConfig(
     progressColor: "#f8bf51",
     showProgress: true,
     preheader: `Your order has been confirmed — ${formattedTotal} total. We'll email you when it ships.`,
-    emailSubject: "Your Sai Nandhini order is confirmed!",
+    emailSubject: `Your ${shopName} order is confirmed!`,
     step1State: "active",
     step2State: "inactive",
     step3State: "inactive",
@@ -165,7 +166,7 @@ function buildStatusConfig(
         progressWidth: "10%",
         preheader:
           "Your order is being prepared — we'll notify you when it ships.",
-        emailSubject: "Your Sai Nandhini order is being processed",
+        emailSubject: `Your ${shopName} order is being processed`,
         step1State: "done",
         step2State: "inactive",
       };
@@ -207,7 +208,7 @@ function buildStatusConfig(
           : "Tracking details will be updated shortly. Check the app for live status.",
         progressWidth: "50%",
         preheader: "Your order has shipped and is on its way to you!",
-        emailSubject: "Your Sai Nandhini order has been dispatched!",
+        emailSubject: `Your ${shopName} order has been dispatched!`,
         step1State: "done",
         step2State: "active",
         step3State: "inactive",
@@ -241,7 +242,7 @@ function buildStatusConfig(
         showProgress: true,
         preheader:
           "Your order is out for delivery — expected today between 2–6 PM!",
-        emailSubject: "Your Sai Nandhini order is out for delivery today!",
+        emailSubject: `Your ${shopName} order is out for delivery today!`,
         step1State: "done",
         step2State: "done",
         step3State: "active",
@@ -274,7 +275,7 @@ function buildStatusConfig(
         progressColor: "#4caf50",
         showProgress: true,
         preheader: `Your order has arrived! Leave a review and get 10% off your next order.`,
-        emailSubject: "Your Sai Nandhini order has been delivered! 🎉",
+        emailSubject: `Your ${shopName} order has been delivered!`,
         step1State: "done",
         step2State: "done",
         step3State: "done",
@@ -307,7 +308,7 @@ function buildStatusConfig(
         progressWidth: "0%",
         showProgress: false,
         preheader: `Your order has been cancelled. A refund of ${formattedTotal} is on its way.`,
-        emailSubject: "Your Sai Nandhini order has been cancelled",
+        emailSubject: `Your ${shopName} order has been cancelled`,
         step1State: "inactive",
         step2State: "inactive",
         step3State: "inactive",
@@ -843,6 +844,7 @@ export function getEmailTemplate(
     options.statusMessage,
     total,
     date,
+    resolved.shopName,
   );
 
   const isCancelled = order.status === "Cancelled";

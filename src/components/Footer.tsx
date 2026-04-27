@@ -18,10 +18,12 @@ export default function Footer() {
   const pathname = usePathname();
 
   const handleHashLink = (e: React.MouseEvent, link: string) => {
-    const [path, hash] = link.split("#");
-    if (hash && pathname === path) {
+    const [pathWithQuery, hash] = link.split("#");
+    const basePath = pathWithQuery.split("?")[0];
+    if (hash && pathname === basePath) {
       e.preventDefault();
-      document.getElementById(hash)?.scrollIntoView({ behavior: "smooth" });
+      // Use full page navigation so query params trigger useSearchParams update
+      window.location.href = link;
     }
   };
 
@@ -171,11 +173,11 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3 mb-8">
                 {[
-                  { name: "Customizable Packs", link: "/contact#enquiry-form" },
-                  { name: "Personalized Branding", link: "/contact#enquiry-form" },
-                  { name: "Bulk Orders", link: "/contact#enquiry-form" },
-                  { name: "Corporate Gifting", link: "/contact#enquiry-form" },
-                  { name: "Event Gifting", link: "/contact#enquiry-form" },
+                  { name: "Customizable Packs", link: "/contact?type=Customizable+Packs#enquiry-form" },
+                  { name: "Personalized Branding", link: "/contact?type=Personalized+Branding#enquiry-form" },
+                  { name: "Bulk Orders", link: "/contact?type=Bulk+Order#enquiry-form" },
+                  { name: "Corporate Gifting", link: "/contact?type=Corporate+Gifting#enquiry-form" },
+                  { name: "Event Gifting", link: "/contact?type=Event+Catering#enquiry-form" },
                 ].map((item) => (
                   <li key={item.name}>
                     <Link

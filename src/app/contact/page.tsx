@@ -8,22 +8,26 @@ import {
   Phone,
   Mail,
   Send,
-  MessageSquare,
-  Users,
-  Calendar,
-  Briefcase,
   ChevronDown,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useNavbarData } from "@/context/NavbarDataContext";
 import { validateForm, contactSchema, FieldErrors } from "@/lib/validations";
 import FormError from "@/components/FormError";
 
+const CORPORATE_TYPES = ["Corporate Booking", "Event Catering", "Bulk Order", "Corporate Gifting", "Customizable Packs", "Personalized Branding"];
+
 export default function ContactPage() {
   const { settings } = useNavbarData();
+  const searchParams = useSearchParams();
+
+  const typeParam = searchParams.get("type");
+  const isCorporateType = typeParam ? CORPORATE_TYPES.includes(typeParam) : false;
+
   const [activeTab, setActiveTab] = useState<"general" | "corporate">(
-    "general",
+    isCorporateType ? "corporate" : "general",
   );
 
   const [formData, setFormData] = useState({
@@ -31,10 +35,18 @@ export default function ContactPage() {
     email: "",
     phone: "",
     company: "",
-    type: "General Inquiry",
+    type: isCorporateType ? typeParam! : "General Inquiry",
     message: "",
     date: "",
   });
+
+  // Update when query params change (e.g. navigating from footer while already on page)
+  useEffect(() => {
+    if (typeParam && CORPORATE_TYPES.includes(typeParam)) {
+      setActiveTab("corporate");
+      setFormData((prev) => ({ ...prev, type: typeParam }));
+    }
+  }, [typeParam]);
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -296,6 +308,8 @@ export default function ContactPage() {
                           <option>Event Catering</option>
                           <option>Bulk Order</option>
                           <option>Corporate Gifting</option>
+                          <option>Customizable Packs</option>
+                          <option>Personalized Branding</option>
                         </>
                       )}
                     </select>
