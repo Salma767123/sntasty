@@ -10,7 +10,7 @@ import {
   Send,
   ChevronDown,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 import { useNavbarData } from "@/context/NavbarDataContext";
@@ -20,6 +20,14 @@ import FormError from "@/components/FormError";
 const CORPORATE_TYPES = ["Corporate Booking", "Event Catering", "Bulk Order", "Corporate Gifting", "Customizable Packs", "Personalized Branding"];
 
 export default function ContactPage() {
+  return (
+    <Suspense>
+      <ContactPageContent />
+    </Suspense>
+  );
+}
+
+function ContactPageContent() {
   const { settings } = useNavbarData();
   const searchParams = useSearchParams();
 
