@@ -52,6 +52,11 @@ export default function CheckoutClient({
   const { cartItems, cartTotal, clearCart } = useCart();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("prepaid");
+  const activeGateway: "razorpay" | "phonepe" | "both" =
+    initialSettings?.payment?.activeGateway || "razorpay";
+  const [selectedGateway, setSelectedGateway] = useState<"razorpay" | "phonepe">(
+    activeGateway === "phonepe" ? "phonepe" : "razorpay",
+  );
   const [showSummary, setShowSummary] = useState(false);
 
   const [address, setAddress] = useState({
@@ -311,6 +316,9 @@ export default function CheckoutClient({
   };
 
   const makePayment = async () => {
+    // Prevent double-submit while a payment flow is already in progress
+    if (loading) return;
+
     const validation = validateForm(checkoutSchema, address);
     if (!validation.success) {
       setFieldErrors(validation.errors);
@@ -365,7 +373,7 @@ export default function CheckoutClient({
           pincode: address.pincode,
           state: address.state,
         },
-        paymentMethod: "Razorpay",
+        paymentMethod: selectedGateway === "phonepe" ? "PhonePe" : "Razorpay",
         itemsPrice,
         taxPrice: 0,
         shippingPrice,
@@ -375,6 +383,56 @@ export default function CheckoutClient({
         discount: discountAmount,
       };
 
+      // === PhonePe Flow ===
+      if (selectedGateway === "phonepe") {
+        try {
+          const ppRes = await fetch("/api/payments/phonepe/initiate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ amount: totalPrice, orderData }),
+          });
+          const ppData = await ppRes.json();
+
+          if (!ppRes.ok || !ppData.success || !ppData.redirectUrl) {
+            console.error("PhonePe initiate error:", ppData);
+            toast.error(ppData.error || "PhonePe payment initiation failed");
+            setLoading(false);
+            return;
+          }
+
+          // Save address if user opted to BEFORE redirect
+          if (saveAddress && showAddressForm && session?.user) {
+            try {
+              await fetch("/api/user/addresses", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  label: addressLabel,
+                  fullName: address.fullName,
+                  email: address.email,
+                  phone: address.phone,
+                  street: address.street,
+                  city: address.city,
+                  pincode: address.pincode,
+                  state: address.state,
+                  isDefault: savedAddresses.length === 0,
+                }),
+              });
+            } catch {}
+          }
+
+          // Redirect to PhonePe payment page
+          window.location.href = ppData.redirectUrl;
+          return;
+        } catch (ppErr: any) {
+          console.error("PhonePe checkout failed", ppErr);
+          toast.error("PhonePe initiation failed: " + ppErr.message);
+          setLoading(false);
+          return;
+        }
+      }
+
+      // === Razorpay Flow ===
       // 1. Create Razorpay order (no DB order yet)
       const payRes = await fetch("/api/payments/razorpay", {
         method: "POST",
@@ -423,23 +481,28 @@ export default function CheckoutClient({
             });
 
             if (verifyRes.ok) {
-              // Save address if user opted to and it's a new address
+              // Save address if user opted to and it's a new address (consistent with PhonePe flow)
               if (saveAddress && showAddressForm && session?.user) {
-                fetch("/api/user/addresses", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    label: addressLabel,
-                    fullName: address.fullName,
-                    email: address.email,
-                    phone: address.phone,
-                    street: address.street,
-                    city: address.city,
-                    pincode: address.pincode,
-                    state: address.state,
-                    isDefault: savedAddresses.length === 0,
-                  }),
-                }).catch(() => {});
+                try {
+                  await fetch("/api/user/addresses", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      label: addressLabel,
+                      fullName: address.fullName,
+                      email: address.email,
+                      phone: address.phone,
+                      street: address.street,
+                      city: address.city,
+                      pincode: address.pincode,
+                      state: address.state,
+                      isDefault: savedAddresses.length === 0,
+                    }),
+                  });
+                } catch {
+                  // address save failure shouldn't block successful order — log only
+                  console.warn("Failed to save address to profile (order succeeded)");
+                }
               }
               clearCart();
               window.location.href = "/orders/success";
@@ -1022,6 +1085,56 @@ export default function CheckoutClient({
                   />
                 </label>
 
+                {/* Gateway Selector — only shown when 'both' enabled */}
+                {paymentMethod === "prepaid" && activeGateway === "both" && (
+                  <div className="border-t border-gray-100 pt-5 mt-2">
+                    <p className="text-sm font-semibold text-gray-700 mb-3">
+                      Choose Payment Provider
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedGateway === "razorpay"
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="gateway"
+                          value="razorpay"
+                          checked={selectedGateway === "razorpay"}
+                          onChange={() => setSelectedGateway("razorpay")}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <div>
+                          <p className="text-sm font-bold text-primary-dark">Razorpay</p>
+                          <p className="text-[11px] text-gray-500">Cards, UPI, NetBanking</p>
+                        </div>
+                      </label>
+                      <label
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                          selectedGateway === "phonepe"
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="gateway"
+                          value="phonepe"
+                          checked={selectedGateway === "phonepe"}
+                          onChange={() => setSelectedGateway("phonepe")}
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <div>
+                          <p className="text-sm font-bold text-primary-dark">PhonePe</p>
+                          <p className="text-[11px] text-gray-500">UPI, Wallet, Cards</p>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                )}
 
               </div>
             </motion.div>

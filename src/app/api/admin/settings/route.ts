@@ -45,6 +45,10 @@ export async function GET() {
         masked.payment.razorpayKeySecret = MASKED;
       if (masked.payment?.razorpayWebhookSecret)
         masked.payment.razorpayWebhookSecret = MASKED;
+      if (masked.payment?.phonepeClientSecret)
+        masked.payment.phonepeClientSecret = MASKED;
+      if (masked.payment?.phonepeWebhookPassword)
+        masked.payment.phonepeWebhookPassword = MASKED;
       if (masked.smtp?.password) masked.smtp.password = MASKED;
       if (masked.googleMyBusiness?.apiKey)
         masked.googleMyBusiness.apiKey = MASKED;
@@ -169,6 +173,75 @@ export async function POST(req: Request) {
           data.payment.razorpayWebhookSecret,
         );
       }
+    } else if (existing?.payment?.razorpayWebhookSecret) {
+      data.payment = data.payment || {};
+      data.payment.razorpayWebhookSecret = existing.payment.razorpayWebhookSecret;
+    }
+
+    // Preserve Razorpay Key Secret on empty (e.g., when saving from another tab)
+    if (!data.payment?.razorpayKeySecret && existing?.payment?.razorpayKeySecret) {
+      data.payment = data.payment || {};
+      data.payment.razorpayKeySecret = existing.payment.razorpayKeySecret;
+    }
+
+    // --- Handle PhonePe Client Secret (V2 OAuth) ---
+    if (data.payment?.phonepeClientSecret) {
+      if (data.payment.phonepeClientSecret === MASKED) {
+        data.payment.phonepeClientSecret = existing?.payment?.phonepeClientSecret;
+      } else {
+        data.payment.phonepeClientSecret = encryptPassword(
+          data.payment.phonepeClientSecret,
+        );
+      }
+    } else if (existing?.payment?.phonepeClientSecret) {
+      // Preserve existing if not provided (prevents accidental wipe from other tabs)
+      data.payment = data.payment || {};
+      data.payment.phonepeClientSecret = existing.payment.phonepeClientSecret;
+    }
+
+    // --- Handle PhonePe Webhook Password (V2) ---
+    if (data.payment?.phonepeWebhookPassword) {
+      if (data.payment.phonepeWebhookPassword === MASKED) {
+        data.payment.phonepeWebhookPassword = existing?.payment?.phonepeWebhookPassword;
+      } else {
+        data.payment.phonepeWebhookPassword = encryptPassword(
+          data.payment.phonepeWebhookPassword,
+        );
+      }
+    } else if (existing?.payment?.phonepeWebhookPassword) {
+      data.payment = data.payment || {};
+      data.payment.phonepeWebhookPassword = existing.payment.phonepeWebhookPassword;
+    }
+
+    // --- Deep-merge data.payment with existing.payment to prevent accidental wipes ---
+    // Mongoose findOneAndUpdate({ }, { payment: {...} }) REPLACES the entire payment subdoc.
+    // To prevent any field from being silently lost, we merge incoming data with existing,
+    // treating empty/undefined/null as "no change" rather than "set to empty".
+    if (existing?.payment) {
+      const incomingPayment = data.payment || {};
+      const merged: Record<string, any> = {};
+
+      // Start from existing payment as the base — convert Mongoose subdoc to plain object
+      const existingPayment =
+        typeof (existing.payment as any).toObject === "function"
+          ? (existing.payment as any).toObject()
+          : { ...existing.payment };
+      for (const [k, v] of Object.entries(existingPayment)) {
+        merged[k] = v;
+      }
+
+      // Overlay incoming — but only non-empty values
+      for (const [k, v] of Object.entries(incomingPayment)) {
+        const isEmpty =
+          v === undefined ||
+          v === null ||
+          (typeof v === "string" && v.trim() === "");
+        if (!isEmpty) {
+          merged[k] = v;
+        }
+      }
+
+      data.payment = merged;
     }
 
     // --- Validate Razorpay Credentials (only when saving payment tab and credentials changed) ---
@@ -191,6 +264,51 @@ export async function POST(req: Request) {
           { error: "Invalid Razorpay credentials. Connection test failed." },
           { status: 400 },
         );
+      }
+    }
+
+    // --- Validate PhonePe required fields & activeGateway consistency ---
+    if (saveContext === "payment") {
+      const ag = data.payment?.activeGateway || "razorpay";
+      const phonepeRequired = ag === "phonepe" || ag === "both";
+      const razorpayRequired = ag === "razorpay" || ag === "both";
+
+      if (phonepeRequired) {
+        const merchantId = data.payment?.phonepeMerchantId;
+        const clientId = data.payment?.phonepeClientId;
+        const clientSecret =
+          data.payment?.phonepeClientSecret || existing?.payment?.phonepeClientSecret;
+        if (!merchantId || !clientId || !clientSecret) {
+          return NextResponse.json(
+            {
+              error:
+                "PhonePe is selected as active gateway but Merchant ID, Client ID, or Client Secret is missing.",
+            },
+            { status: 400 },
+          );
+        }
+        const env = data.payment?.phonepeEnv;
+        if (env && env !== "UAT" && env !== "PROD") {
+          return NextResponse.json(
+            { error: "PhonePe Environment must be either UAT or PROD." },
+            { status: 400 },
+          );
+        }
+      }
+
+      if (razorpayRequired) {
+        const rzpKeyId = data.payment?.razorpayKeyId;
+        const rzpSecret =
+          data.payment?.razorpayKeySecret || existing?.payment?.razorpayKeySecret;
+        if (!rzpKeyId || !rzpSecret) {
+          return NextResponse.json(
+            {
+              error:
+                "Razorpay is selected as active gateway but Key ID or Key Secret is missing.",
+            },
+            { status: 400 },
+          );
+        }
       }
     }
 
@@ -234,6 +352,10 @@ export async function POST(req: Request) {
       response.payment.razorpayKeySecret = MASKED;
     if (response.payment?.razorpayWebhookSecret)
       response.payment.razorpayWebhookSecret = MASKED;
+    if (response.payment?.phonepeClientSecret)
+      response.payment.phonepeClientSecret = MASKED;
+    if (response.payment?.phonepeWebhookPassword)
+      response.payment.phonepeWebhookPassword = MASKED;
     if (response.smtp?.password) response.smtp.password = MASKED;
     if (response.googleMyBusiness?.apiKey)
       response.googleMyBusiness.apiKey = MASKED;

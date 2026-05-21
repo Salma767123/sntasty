@@ -4,8 +4,15 @@ import connectDB from "@/lib/mongodb";
 import Order from "@/models/Order";
 import Settings from "@/models/Settings";
 import { decryptPassword } from "@/lib/encryption";
-// Dynamic imports used below to avoid crashing on servers without chromium
 import { revalidatePath } from "next/cache";
+import {
+  claimOrderPaid,
+  decrementOrderStock,
+  applyCouponUsage,
+  claimInvoiceEmail,
+  sendOrderEmails,
+  releaseInvoiceEmailClaim,
+} from "@/lib/payment-finalize";
 
 // Helper: get decrypted webhook secret
 async function getDecryptedWebhookSecret() {
@@ -60,75 +67,37 @@ export async function POST(req: Request) {
       const paymentEntity = event.payload.payment.entity;
       const razorpayPaymentId = paymentEntity.id;
 
-      // Find the order by the razorpay payment ID stored in paymentResult
       const order = await Order.findOne({ "paymentResult.id": razorpayPaymentId });
 
       if (order) {
-        // Order already exists (created by verify route), handle email
-        if (!order.isPaid) {
-          order.isPaid = true;
-          order.paidAt = new Date();
-          order.paymentResult = {
-            id: razorpayPaymentId,
-            status: "completed",
-            email_address: paymentEntity.email || "",
-          };
-          await order.save();
-        }
+        // Atomic claim — only the winning caller transitions isPaid:false → true.
+        // Verify route usually wins (creates order already paid); this is a no-op then.
+        await claimOrderPaid(String(order._id), {
+          id: razorpayPaymentId,
+          status: "completed",
+          email_address: paymentEntity.email || "",
+        });
 
         console.log(
           `✅ [Webhook] Order ${order._id} payment captured. Payment ID: ${razorpayPaymentId}`,
         );
 
-        // Atomically claim the email sending task (ref repo pattern)
-        const claimedOrder = await Order.findOneAndUpdate(
-          {
-            _id: order._id,
-            invoiceEmailSent: false,
-          },
-          {
-            invoiceEmailSent: true,
-            invoiceEmailSentAt: new Date(),
-          },
-          { new: false },
-        );
+        // Defensive finalize: stock + coupon (atomic & idempotent — no-op if verify already did them)
+        await Promise.allSettled([
+          decrementOrderStock(String(order._id)),
+          applyCouponUsage(String(order._id)),
+        ]);
 
-        // If claimedOrder is not null, we successfully claimed it
-        if (claimedOrder && !claimedOrder.invoiceEmailSent) {
+        // Atomically claim email sending
+        const shouldSend = await claimInvoiceEmail(String(order._id));
+        if (shouldSend) {
           try {
-            const populatedOrder =
-              await Order.findById(order._id).populate("user");
-            console.log(
-              `📧 [Webhook] Generating invoice for order ${order._id}...`,
-            );
-            const { sendOrderConfirmationEmail, sendAdminNewOrderEmail } = await import("@/lib/email-service");
-
-            let pdfBuffer = null;
-            try {
-              const { generateInvoiceHTML } = await import("@/lib/invoice-generator");
-              const { generatePDFFromHTML } = await import("@/lib/pdf-generator");
-              const invoiceHTML = await generateInvoiceHTML(populatedOrder);
-              pdfBuffer = await generatePDFFromHTML(invoiceHTML);
-            } catch (pdfError) {
-              console.warn("⚠️ PDF generation failed, sending email without attachment:", (pdfError as Error).message);
-            }
-
-            await sendOrderConfirmationEmail(populatedOrder, pdfBuffer);
-            await sendAdminNewOrderEmail(populatedOrder, pdfBuffer);
-
-            console.log(
-              `✅ [Webhook] Invoice & Admin emails sent for order ${order._id}`,
-            );
+            console.log(`📧 [Webhook] Generating invoice for order ${order._id}...`);
+            await sendOrderEmails(String(order._id));
+            console.log(`✅ [Webhook] Invoice & admin emails sent for order ${order._id}`);
           } catch (emailError) {
-            console.error(
-              "❌ [Webhook] Failed to send invoice email:",
-              emailError,
-            );
-            // Rollback the flag if email failed
-            await Order.findByIdAndUpdate(order._id, {
-              invoiceEmailSent: false,
-              invoiceEmailSentAt: null,
-            });
+            console.error("❌ [Webhook] Failed to send invoice email:", emailError);
+            await releaseInvoiceEmailClaim(String(order._id));
           }
         } else {
           console.log(
@@ -137,7 +106,7 @@ export async function POST(req: Request) {
         }
       } else {
         console.log(
-          `ℹ️ [Webhook] No order found for payment ${razorpayPaymentId}. It may not have been created yet.`,
+          `ℹ️ [Webhook] No order found for payment ${razorpayPaymentId}.`,
         );
       }
     }

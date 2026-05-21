@@ -52,9 +52,26 @@ const SettingsSchema = new Schema(
       ogImage: { type: String, default: "" },
     },
     payment: {
+      activeGateway: {
+        type: String,
+        enum: ["razorpay", "phonepe", "both"],
+        default: "razorpay",
+      },
       razorpayKeyId: { type: String, default: "" },
       razorpayKeySecret: { type: String, default: "" },
       razorpayWebhookSecret: { type: String, default: "" },
+      // PhonePe Standard Checkout V2 (OAuth)
+      phonepeMerchantId: { type: String, default: "" },
+      phonepeClientId: { type: String, default: "" },
+      phonepeClientSecret: { type: String, default: "" },
+      phonepeClientVersion: { type: String, default: "1" },
+      phonepeWebhookUsername: { type: String, default: "" },
+      phonepeWebhookPassword: { type: String, default: "" },
+      phonepeEnv: {
+        type: String,
+        enum: ["UAT", "PROD"],
+        default: "UAT",
+      },
     },
     smtp: {
       host: { type: String, default: "" },

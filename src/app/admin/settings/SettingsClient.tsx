@@ -181,6 +181,8 @@ export default function SettingsClient({
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [showRzpSecret, setShowRzpSecret] = useState(false);
+  const [showPhonepeClientSecret, setShowPhonepeClientSecret] = useState(false);
+  const [showPhonepeWebhookPass, setShowPhonepeWebhookPass] = useState(false);
   const [showSmtpPass, setShowSmtpPass] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
@@ -539,9 +541,51 @@ export default function SettingsClient({
               <CardHeader
                 icon={<CreditCard size={20} />}
                 title="Payment Gateway"
-                description="Configure Razorpay payment gateway settings"
+                description="Configure Razorpay and PhonePe payment gateway settings"
               />
               <div className="space-y-6">
+                {/* Active Gateway Selector */}
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                  <FieldLabel>Active Payment Gateway</FieldLabel>
+                  <p className="text-xs text-gray-500 mb-4">
+                    Choose which payment gateway(s) to offer customers at checkout
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { value: "razorpay", label: "Razorpay Only" },
+                      { value: "phonepe", label: "PhonePe Only" },
+                      { value: "both", label: "Both (Customer Choice)" },
+                    ].map((option) => (
+                      <label
+                        key={option.value}
+                        className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all touch-manipulation ${
+                          (settings.payment?.activeGateway || "razorpay") === option.value
+                            ? "border-primary bg-primary/5"
+                            : "border-gray-100 bg-white hover:border-gray-200"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="activeGateway"
+                          value={option.value}
+                          checked={(settings.payment?.activeGateway || "razorpay") === option.value}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: {
+                                ...settings.payment,
+                                activeGateway: e.target.value,
+                              },
+                            })
+                          }
+                          className="w-4 h-4 accent-primary"
+                        />
+                        <span className="text-sm font-semibold text-gray-800">{option.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
@@ -642,6 +686,212 @@ export default function SettingsClient({
                   </p>
                 </div>
 
+                {/* PhonePe Section */}
+                <div className="border-t border-gray-100 pt-8 mt-2">
+                  <div className="bg-purple-50 border border-purple-100 rounded-xl p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+                        <CreditCard size={16} className="text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-purple-900 mb-1">
+                          PhonePe Integration
+                        </p>
+                        <p className="text-xs text-purple-700">
+                          Get your Merchant credentials from{" "}
+                          <a
+                            href="https://business.phonepe.com/pg/developer-settings"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline font-semibold hover:text-purple-900"
+                          >
+                            PhonePe Business Dashboard
+                          </a>
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <FieldLabel>PhonePe Merchant ID</FieldLabel>
+                      <input
+                        type="text"
+                        className={INPUT_CLASS}
+                        value={settings.payment?.phonepeMerchantId || ""}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            payment: {
+                              ...settings.payment,
+                              phonepeMerchantId: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="M___________"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        Your unique Merchant ID assigned by PhonePe
+                      </p>
+                    </div>
+
+                    <div>
+                      <FieldLabel>Client ID</FieldLabel>
+                      <input
+                        type="text"
+                        className={INPUT_CLASS}
+                        value={settings.payment?.phonepeClientId || ""}
+                        onChange={(e) =>
+                          setSettings({
+                            ...settings,
+                            payment: {
+                              ...settings.payment,
+                              phonepeClientId: e.target.value,
+                            },
+                          })
+                        }
+                        placeholder="SU___________________"
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        OAuth Client ID from PhonePe Business Dashboard
+                      </p>
+                    </div>
+
+                    <div>
+                      <FieldLabel>Client Secret</FieldLabel>
+                      <div className="relative">
+                        <input
+                          type={showPhonepeClientSecret ? "text" : "password"}
+                          className={`${INPUT_CLASS} pr-12`}
+                          value={settings.payment?.phonepeClientSecret || ""}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: {
+                                ...settings.payment,
+                                phonepeClientSecret: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="••••••••••••••••"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPhonepeClientSecret(!showPhonepeClientSecret)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation rounded"
+                        >
+                          {showPhonepeClientSecret ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        OAuth Client Secret (encrypted at rest, never shown again)
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <FieldLabel>Client Version</FieldLabel>
+                        <input
+                          type="text"
+                          className={INPUT_CLASS}
+                          value={settings.payment?.phonepeClientVersion || "1"}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: {
+                                ...settings.payment,
+                                phonepeClientVersion: e.target.value,
+                              },
+                            })
+                          }
+                          placeholder="1"
+                        />
+                        <p className="text-xs text-gray-500 mt-1.5">
+                          Usually "1" — confirm with PhonePe dashboard
+                        </p>
+                      </div>
+
+                      <div>
+                        <FieldLabel>Environment</FieldLabel>
+                        <select
+                          className={INPUT_CLASS}
+                          value={settings.payment?.phonepeEnv || "UAT"}
+                          onChange={(e) =>
+                            setSettings({
+                              ...settings,
+                              payment: {
+                                ...settings.payment,
+                                phonepeEnv: e.target.value,
+                              },
+                            })
+                          }
+                        >
+                          <option value="UAT">UAT (Sandbox / Testing)</option>
+                          <option value="PROD">PROD (Live)</option>
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1.5">
+                          Use UAT for testing, switch to PROD for live payments
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-5">
+                      <p className="text-sm font-bold text-gray-700 mb-1">Webhook Credentials (Optional)</p>
+                      <p className="text-xs text-gray-500 mb-4">
+                        Configured in PhonePe dashboard separately from API credentials.
+                        Required only if you've enabled webhooks for async payment notifications.
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div>
+                          <FieldLabel>Webhook Username</FieldLabel>
+                          <input
+                            type="text"
+                            className={INPUT_CLASS}
+                            value={settings.payment?.phonepeWebhookUsername || ""}
+                            onChange={(e) =>
+                              setSettings({
+                                ...settings,
+                                payment: {
+                                  ...settings.payment,
+                                  phonepeWebhookUsername: e.target.value,
+                                },
+                              })
+                            }
+                            placeholder="webhook_user"
+                          />
+                        </div>
+                        <div>
+                          <FieldLabel>Webhook Password</FieldLabel>
+                          <div className="relative">
+                            <input
+                              type={showPhonepeWebhookPass ? "text" : "password"}
+                              className={`${INPUT_CLASS} pr-12`}
+                              value={settings.payment?.phonepeWebhookPassword || ""}
+                              onChange={(e) =>
+                                setSettings({
+                                  ...settings,
+                                  payment: {
+                                    ...settings.payment,
+                                    phonepeWebhookPassword: e.target.value,
+                                  },
+                                })
+                              }
+                              placeholder="••••••••••••••••"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowPhonepeWebhookPass(!showPhonepeWebhookPass)}
+                              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation rounded"
+                            >
+                              {showPhonepeWebhookPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="border-t border-gray-100 pt-6">
                   <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
                     <div className="flex items-start gap-3">
@@ -653,8 +903,8 @@ export default function SettingsClient({
                           Security Note
                         </p>
                         <p className="text-xs text-amber-700">
-                          Never share your Key Secret publicly. Use test keys
-                          for development and live keys only in production.
+                          Never share your Key Secret or Salt Key publicly. Use test/UAT credentials
+                          for development and live credentials only in production.
                         </p>
                       </div>
                     </div>

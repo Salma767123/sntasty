@@ -57,6 +57,8 @@ const OrderSchema = new Schema(
     shippingNotes: { type: String },
     invoiceEmailSent: { type: Boolean, default: false },
     invoiceEmailSentAt: { type: Date },
+    stockDecremented: { type: Boolean, default: false },
+    couponApplied: { type: Boolean, default: false },
   },
   {
     timestamps: true,

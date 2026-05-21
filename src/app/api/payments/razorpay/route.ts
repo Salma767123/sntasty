@@ -29,6 +29,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // Enforce active gateway server-side
+    const settingsDoc = await Settings.findOne();
+    const activeGateway = settingsDoc?.payment?.activeGateway || "razorpay";
+    if (activeGateway !== "razorpay" && activeGateway !== "both") {
+      return NextResponse.json(
+        { error: "Razorpay is not enabled for this store" },
+        { status: 403 },
+      );
+    }
+
     // Get decrypted payment config (exact ref repo pattern)
     const paymentConfig = await getDecryptedPaymentConfig();
 

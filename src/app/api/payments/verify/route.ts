@@ -3,13 +3,19 @@ import crypto from "crypto";
 import connectDB from "@/lib/mongodb";
 import Order from "@/models/Order";
 import Settings from "@/models/Settings";
-import Coupon from "@/models/Coupon";
 import { decryptPassword } from "@/lib/encryption";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { invalidateCache, CACHE_KEYS } from "@/lib/cache";
 import User from "@/models/User";
+import {
+  decrementOrderStock,
+  applyCouponUsage,
+  claimInvoiceEmail,
+  sendOrderEmails,
+  releaseInvoiceEmailClaim,
+} from "@/lib/payment-finalize";
 
 // Helper: get decrypted payment config from DB (exact ref repo pattern)
 async function getDecryptedPaymentConfig() {
@@ -132,6 +138,7 @@ export async function POST(req: Request) {
       couponCode: couponCode || null,
       discount: discount || 0,
       totalPrice,
+      status: "Pending",
       isPaid: true,
       paidAt: new Date(),
       paymentResult: {
@@ -144,34 +151,11 @@ export async function POST(req: Request) {
     const createdOrder = await order.save();
     console.log(`✅ Payment verified & order created: ${createdOrder._id}`);
 
-    // Update coupon usage if applicable
-    if (couponCode) {
-      try {
-        const coupon = await Coupon.findOne({ code: couponCode.toUpperCase() });
-        if (coupon) {
-          coupon.usedCount = (coupon.usedCount || 0) + 1;
-          if (userId) {
-            const userUsageIndex = coupon.usedByUsers?.findIndex(
-              (u: any) => u.userId.toString() === userId
-            );
-            if (userUsageIndex !== undefined && userUsageIndex >= 0) {
-              coupon.usedByUsers[userUsageIndex].count += 1;
-              coupon.usedByUsers[userUsageIndex].lastUsedAt = new Date();
-            } else {
-              if (!coupon.usedByUsers) coupon.usedByUsers = [];
-              coupon.usedByUsers.push({
-                userId: userId,
-                count: 1,
-                lastUsedAt: new Date(),
-              });
-            }
-          }
-          await coupon.save();
-        }
-      } catch (couponError) {
-        console.error("Failed to update coupon usage:", couponError);
-      }
-    }
+    // Decrement stock + apply coupon usage (atomic, idempotent)
+    await Promise.allSettled([
+      decrementOrderStock(String(createdOrder._id)),
+      applyCouponUsage(String(createdOrder._id)),
+    ]);
 
     // Check if webhook is configured (ref repo pattern)
     const hasWebhook =
@@ -188,33 +172,15 @@ export async function POST(req: Request) {
         `⚠️ No webhook configured. Sending invoice email for order ${createdOrder._id}...`,
       );
 
-      // Fire and forget
       (async () => {
+        const claimed = await claimInvoiceEmail(String(createdOrder._id));
+        if (!claimed) return;
         try {
-          const { sendOrderConfirmationEmail, sendAdminNewOrderEmail } = await import("@/lib/email-service");
-          const populatedOrder = await Order.findById(createdOrder._id).populate("user");
-
-          let pdfBuffer = null;
-          try {
-            const { generateInvoiceHTML } = await import("@/lib/invoice-generator");
-            const { generatePDFFromHTML } = await import("@/lib/pdf-generator");
-            const invoiceHTML = await generateInvoiceHTML(populatedOrder);
-            pdfBuffer = await generatePDFFromHTML(invoiceHTML);
-          } catch (pdfError) {
-            console.warn("⚠️ PDF generation failed, sending email without attachment:", (pdfError as Error).message);
-          }
-
-          await sendOrderConfirmationEmail(populatedOrder, pdfBuffer);
-          await sendAdminNewOrderEmail(populatedOrder, pdfBuffer);
-
-          await Order.findByIdAndUpdate(createdOrder._id, {
-            invoiceEmailSent: true,
-            invoiceEmailSentAt: new Date(),
-          });
-
+          await sendOrderEmails(String(createdOrder._id));
           console.log(`✅ Invoice & email sent for order ${createdOrder._id}`);
         } catch (emailError) {
           console.error("❌ Failed to send order confirmation email:", emailError);
+          await releaseInvoiceEmailClaim(String(createdOrder._id));
         }
       })();
     }
