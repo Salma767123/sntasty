@@ -17,6 +17,8 @@ import {
   Search,
   Calendar,
   Eye,
+  XCircle,
+  IndianRupee,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -63,11 +65,15 @@ export default function OrdersListClient({
 
     // Status filter
     if (statusFilter !== "all") {
-      filtered = filtered.filter((order) => {
-        const orderStatus =
-          order.status || (order.isDelivered ? "Delivered" : "Pending");
-        return orderStatus.toLowerCase() === statusFilter.toLowerCase();
-      });
+      if (statusFilter === "Refunded") {
+        filtered = filtered.filter((order) => order.refundStatus === "refunded");
+      } else {
+        filtered = filtered.filter((order) => {
+          const orderStatus =
+            order.status || (order.isDelivered ? "Delivered" : "Pending");
+          return orderStatus.toLowerCase() === statusFilter.toLowerCase();
+        });
+      }
     }
 
     setFilteredOrders(filtered);
@@ -82,9 +88,14 @@ export default function OrdersListClient({
     itemsPerPage,
   } = usePagination(filteredOrders, 10);
 
+  const getDisplayStatus = (order: any) => {
+    // Refunded supersedes Cancelled label for customer-facing display
+    if (order.refundStatus === "refunded") return "Refunded";
+    return order.status || (order.isDelivered ? "Delivered" : "Pending");
+  };
+
   const getStatusConfig = (order: any) => {
-    const status =
-      order.status || (order.isDelivered ? "Delivered" : "Pending");
+    const status = getDisplayStatus(order);
 
     const configs: Record<string, any> = {
       Delivered: {
@@ -110,6 +121,18 @@ export default function OrdersListClient({
         color: "text-gray-600",
         bg: "bg-gray-50",
         border: "border-gray-200",
+      },
+      Cancelled: {
+        icon: XCircle,
+        color: "text-red-600",
+        bg: "bg-red-50",
+        border: "border-red-200",
+      },
+      Refunded: {
+        icon: IndianRupee,
+        color: "text-teal-700",
+        bg: "bg-teal-50",
+        border: "border-teal-200",
       },
     };
 
@@ -217,7 +240,7 @@ export default function OrdersListClient({
                 />
               </div>
               <div className="flex flex-wrap gap-2">
-                {["all", "Delivered", "Shipping", "Processing", "Pending"].map(
+                {["all", "Delivered", "Shipping", "Processing", "Pending", "Cancelled", "Refunded"].map(
                   (status) => (
                     <button
                       key={status}
@@ -323,8 +346,7 @@ export default function OrdersListClient({
                             <span
                               className={`text-xs font-bold uppercase tracking-wider ${statusConfig.color}`}
                             >
-                              {order.status ||
-                                (order.isDelivered ? "Delivered" : "Pending")}
+                              {getDisplayStatus(order)}
                             </span>
                           </div>
                         </div>

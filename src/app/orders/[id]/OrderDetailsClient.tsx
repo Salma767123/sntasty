@@ -44,6 +44,10 @@ export default function OrderDetailsClient({
         return "bg-blue-100 text-blue-600";
       case "Processing":
         return "bg-orange-100 text-orange-600";
+      case "Cancelled":
+        return "bg-red-100 text-red-600";
+      case "Refunded":
+        return "bg-teal-100 text-teal-700";
       default:
         return "bg-gray-100 text-gray-500";
     }
@@ -57,13 +61,18 @@ export default function OrderDetailsClient({
         return <Truck size={16} />;
       case "Processing":
         return <Package size={16} />;
+      case "Cancelled":
+      case "Refunded":
+        return <Clock size={16} />;
       default:
         return <Clock size={16} />;
     }
   };
 
   const currentStatus =
-    order.status || (order.isDelivered ? "Delivered" : "Pending");
+    order.refundStatus === "refunded"
+      ? "Refunded"
+      : order.status || (order.isDelivered ? "Delivered" : "Pending");
 
   return (
     <main className="min-h-screen bg-gray-50 pb-20 overflow-hidden">
