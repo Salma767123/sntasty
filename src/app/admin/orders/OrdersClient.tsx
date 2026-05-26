@@ -163,6 +163,44 @@ export default function OrdersClient({
     }
   };
 
+  const handleMarkRefunded = async (order: any) => {
+    if (!order || order.refundStatus === "refunded") return;
+    if (!order.isPaid) {
+      toast.error("Cannot mark unpaid order as refunded");
+      return;
+    }
+    if (!confirm("Confirm that you've processed the refund in the payment gateway dashboard?")) {
+      return;
+    }
+    try {
+      const res = await fetch(`/api/admin/orders/${order._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refundStatus: "refunded" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update");
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o._id === order._id
+            ? { ...o, refundStatus: "refunded", refundedAt: new Date().toISOString() }
+            : o,
+        ),
+      );
+      if (viewingOrder?._id === order._id) {
+        setViewingOrder({
+          ...viewingOrder,
+          refundStatus: "refunded",
+          refundedAt: new Date().toISOString(),
+        });
+      }
+      toast.success("Order marked as refunded");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to mark as refunded");
+    }
+  };
+
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     const order = orders.find((o) => o._id === orderId);
     if (order) {
@@ -631,6 +669,27 @@ export default function OrdersClient({
                             <X size={16} />
                           </button>
                         )}
+                        {order.status === "Cancelled" &&
+                          order.isPaid &&
+                          order.refundStatus === "manual_pending" && (
+                            <button
+                              onClick={() => handleMarkRefunded(order)}
+                              className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation whitespace-nowrap"
+                              title="Mark order as refunded (after processing in gateway dashboard)"
+                            >
+                              Mark Refunded
+                            </button>
+                          )}
+                        {order.status === "Cancelled" &&
+                          order.isPaid &&
+                          order.refundStatus === "refunded" && (
+                            <span
+                              className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-green-700 bg-green-50 rounded-xl whitespace-nowrap inline-flex items-center gap-1"
+                              title={order.refundedAt ? `Refunded on ${new Date(order.refundedAt).toLocaleDateString()}` : "Refunded"}
+                            >
+                              <CheckCircle2 size={12} /> Refunded
+                            </span>
+                          )}
                       </div>
                     </td>
                   </motion.tr>
@@ -753,6 +812,23 @@ export default function OrdersClient({
                       <X size={18} />
                     </button>
                   )}
+                  {order.status === "Cancelled" &&
+                    order.isPaid &&
+                    order.refundStatus === "manual_pending" && (
+                      <button
+                        onClick={() => handleMarkRefunded(order)}
+                        className="flex-1 px-3 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-amber-600 hover:bg-amber-700 rounded-xl transition-all shadow-sm"
+                      >
+                        Mark Refunded
+                      </button>
+                    )}
+                  {order.status === "Cancelled" &&
+                    order.isPaid &&
+                    order.refundStatus === "refunded" && (
+                      <span className="flex-1 px-3 py-3 text-[10px] font-black uppercase tracking-widest text-green-700 bg-green-50 rounded-xl inline-flex items-center justify-center gap-1.5">
+                        <CheckCircle2 size={14} /> Refunded
+                      </span>
+                    )}
                 </div>
               </div>
             </motion.div>

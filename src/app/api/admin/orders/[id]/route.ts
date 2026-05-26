@@ -68,6 +68,27 @@ export async function PUT(
     if (body.estimatedDeliveryDate) updateData.estimatedDeliveryDate = body.estimatedDeliveryDate;
     if (body.shippingNotes !== undefined) updateData.shippingNotes = body.shippingNotes;
 
+    // Refund status — admin marks as refunded after manual gateway refund
+    if (body.refundStatus !== undefined) {
+      const validRefundStatuses = ["not_applicable", "manual_pending", "refunded"];
+      if (!validRefundStatuses.includes(body.refundStatus)) {
+        return NextResponse.json(
+          { error: "Invalid refund status" },
+          { status: 400 },
+        );
+      }
+      if (body.refundStatus === "refunded" && !existingOrder.isPaid) {
+        return NextResponse.json(
+          { error: "Cannot mark unpaid order as refunded" },
+          { status: 400 },
+        );
+      }
+      updateData.refundStatus = body.refundStatus;
+      if (body.refundStatus === "refunded") {
+        updateData.refundedAt = new Date();
+      }
+    }
+
     // Only allow manual isDelivered/isPaid updates if status wasn't explicitly changed
     if (body.isDelivered !== undefined && !body.status) {
       updateData.isDelivered = body.isDelivered;

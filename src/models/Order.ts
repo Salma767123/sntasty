@@ -58,6 +58,7 @@ const OrderSchema = new Schema(
       enum: ["not_applicable", "manual_pending", "refunded"],
       default: "not_applicable",
     },
+    refundedAt: { type: Date },
     awbNumber: { type: String },
     courierName: { type: String },
     trackingLink: { type: String },
