@@ -152,6 +152,12 @@ export const sendStatusUpdateEmail = async (order: any) => {
     } else if (order.status === "Delivered") {
       statusMessage =
         "Your order has been delivered successfully. Thank you for shopping with us!";
+    } else if (order.status === "Cancelled") {
+      const reason = order.cancelReason ? ` Reason: <strong>${order.cancelReason}</strong>.` : "";
+      const refund = order.isPaid
+        ? " If your payment was successful, the refund will be processed to your original payment method within 5–7 business days."
+        : "";
+      statusMessage = `Your order has been cancelled.${reason}${refund}`;
     }
 
     const { html, subject } = getEmailTemplate(order, settings, {

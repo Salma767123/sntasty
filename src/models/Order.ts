@@ -47,8 +47,16 @@ const OrderSchema = new Schema(
     status: {
       type: String,
       required: true,
-      enum: ["Pending", "Processing", "Shipping", "Delivered"],
+      enum: ["Pending", "Processing", "Shipping", "Delivered", "Cancelled"],
       default: "Pending",
+    },
+    cancelledAt: { type: Date },
+    cancelReason: { type: String },
+    cancelledBy: { type: Schema.Types.ObjectId, ref: "User" },
+    refundStatus: {
+      type: String,
+      enum: ["not_applicable", "manual_pending", "refunded"],
+      default: "not_applicable",
     },
     awbNumber: { type: String },
     courierName: { type: String },

@@ -63,6 +63,10 @@ export default function OrdersClient({
     estimatedDeliveryDate: "",
     shippingNotes: "",
   });
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
+  const [cancelOrder, setCancelOrder] = useState<any>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -87,9 +91,76 @@ export default function OrdersClient({
   };
 
   const getNextStatuses = (currentStatus: string): string[] => {
+    if (currentStatus === "Cancelled") return ["Cancelled"];
     const idx = ORDER_STAGES.indexOf(currentStatus);
     if (idx === -1) return ORDER_STAGES;
     return ORDER_STAGES.slice(idx);
+  };
+
+  const openCancelModal = (order: any) => {
+    if (!order) return;
+    if (order.status === "Cancelled") {
+      toast.error("This order is already cancelled");
+      return;
+    }
+    if (order.status === "Delivered") {
+      toast.error("Delivered orders cannot be cancelled");
+      return;
+    }
+    setCancelOrder(order);
+    setCancelReason("");
+    setCancelModalOpen(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!cancelOrder) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      toast.error("Please enter a cancellation reason");
+      return;
+    }
+
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${cancelOrder._id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to cancel order");
+      }
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o._id === cancelOrder._id
+            ? { ...o, status: "Cancelled", cancelledAt: new Date().toISOString(), cancelReason: reason }
+            : o,
+        ),
+      );
+      if (viewingOrder?._id === cancelOrder._id) {
+        setViewingOrder({
+          ...viewingOrder,
+          status: "Cancelled",
+          cancelledAt: new Date().toISOString(),
+          cancelReason: reason,
+        });
+      }
+
+      toast.success(
+        data.refundRequired
+          ? "Order cancelled. Process refund manually via payment gateway."
+          : "Order cancelled successfully",
+      );
+      setCancelModalOpen(false);
+      setCancelOrder(null);
+      setCancelReason("");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to cancel order");
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
@@ -338,7 +409,7 @@ export default function OrdersClient({
 
         {/* Status Filter */}
         <div className="flex items-center gap-1 bg-[#ece0cc] p-1 rounded-lg sm:rounded-xl overflow-x-auto no-scrollbar max-w-full">
-          {["All", ...ORDER_STAGES].map((s) => (
+          {["All", ...ORDER_STAGES, "Cancelled"].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
@@ -501,15 +572,17 @@ export default function OrdersClient({
                           onChange={(e) =>
                             handleStatusChange(order._id, e.target.value)
                           }
-                          disabled={order.status === "Delivered"}
+                          disabled={order.status === "Delivered" || order.status === "Cancelled"}
                           className={`appearance-none w-full bg-[#ece0cc] border-none rounded-xl py-2.5 pl-3 pr-8 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:bg-white transition-colors focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation disabled:opacity-60 disabled:cursor-not-allowed ${
-                            order.status === "Delivered"
-                              ? "text-green-600"
-                              : order.status === "Shipping"
-                                ? "text-orange-600"
-                                : order.status === "Processing"
-                                  ? "text-blue-600"
-                                  : "text-gray-500"
+                            order.status === "Cancelled"
+                              ? "text-red-600 bg-red-50"
+                              : order.status === "Delivered"
+                                ? "text-green-600"
+                                : order.status === "Shipping"
+                                  ? "text-orange-600"
+                                  : order.status === "Processing"
+                                    ? "text-blue-600"
+                                    : "text-gray-500"
                           }`}
                         >
                           {getNextStatuses(order.status).map((s) => (
@@ -549,6 +622,15 @@ export default function OrdersClient({
                         >
                           <FileText size={16} />
                         </Link>
+                        {order.status !== "Cancelled" && order.status !== "Delivered" && (
+                          <button
+                            onClick={() => openCancelModal(order)}
+                            className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation"
+                            title="Cancel Order"
+                          >
+                            <X size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </motion.tr>
@@ -615,15 +697,17 @@ export default function OrdersClient({
                     onChange={(e) =>
                       handleStatusChange(order._id, e.target.value)
                     }
-                    disabled={order.status === "Delivered"}
+                    disabled={order.status === "Delivered" || order.status === "Cancelled"}
                     className={`appearance-none w-full bg-[#ece0cc] border-none rounded-xl py-2.5 pl-3 pr-8 text-[10px] font-black uppercase tracking-widest focus-visible:ring-2 focus-visible:ring-primary/20 transition-all disabled:opacity-60 disabled:cursor-not-allowed ${
-                      order.status === "Delivered"
-                        ? "text-green-600"
-                        : order.status === "Shipping"
-                          ? "text-orange-600"
-                          : order.status === "Processing"
-                            ? "text-blue-600"
-                            : "text-gray-500"
+                      order.status === "Cancelled"
+                        ? "text-red-600 bg-red-50"
+                        : order.status === "Delivered"
+                          ? "text-green-600"
+                          : order.status === "Shipping"
+                            ? "text-orange-600"
+                            : order.status === "Processing"
+                              ? "text-blue-600"
+                              : "text-gray-500"
                     }`}
                   >
                     {getNextStatuses(order.status).map((s) => (
@@ -660,6 +744,15 @@ export default function OrdersClient({
                   >
                     <FileText size={18} />
                   </Link>
+                  {order.status !== "Cancelled" && order.status !== "Delivered" && (
+                    <button
+                      onClick={() => openCancelModal(order)}
+                      className="p-3 bg-white border border-gray-100 rounded-xl text-red-600 hover:bg-red-50 transition-all shadow-sm"
+                      title="Cancel Order"
+                    >
+                      <X size={18} />
+                    </button>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1047,6 +1140,103 @@ export default function OrdersClient({
                      Save & Send Email
                    </button>
                 </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Cancel Order Modal */}
+      <AnimatePresence>
+        {cancelModalOpen && cancelOrder && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => !cancelling && setCancelModalOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="bg-gradient-to-r from-red-600 to-red-700 px-6 py-5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                    <AlertCircle className="text-white" size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Cancel Order</h3>
+                    <p className="text-xs text-white/80">
+                      #{cancelOrder?._id?.slice(-8).toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => !cancelling && setCancelModalOpen(false)}
+                  disabled={cancelling}
+                  className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors disabled:opacity-50"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                  <p className="text-sm font-bold text-amber-900 mb-1">
+                    This action will:
+                  </p>
+                  <ul className="text-xs text-amber-800 space-y-1 list-disc list-inside">
+                    <li>Mark this order as Cancelled</li>
+                    <li>Restock the inventory automatically</li>
+                    <li>Reverse coupon usage (if any)</li>
+                    <li>Send a cancellation email to the customer</li>
+                    {cancelOrder?.isPaid && (
+                      <li className="font-semibold">
+                        ⚠️ Payment was received — refund must be processed manually via{" "}
+                        {cancelOrder?.paymentMethod || "the payment gateway"} dashboard.
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Cancellation Reason <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="e.g. Customer requested cancellation, out of stock, address invalid..."
+                    rows={3}
+                    maxLength={500}
+                    disabled={cancelling}
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/80 text-gray-900 outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-shadow placeholder:text-gray-400 text-sm resize-none disabled:opacity-50"
+                  />
+                  <p className="text-xs text-gray-400 mt-1.5">
+                    {cancelReason.length}/500 characters — visible to customer in email
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button
+                  onClick={() => setCancelModalOpen(false)}
+                  disabled={cancelling}
+                  className="px-5 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-100 transition-colors disabled:opacity-50"
+                >
+                  Keep Order
+                </button>
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={cancelling || !cancelReason.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {cancelling ? "Cancelling..." : "Confirm Cancel"}
+                </button>
               </div>
             </motion.div>
           </motion.div>

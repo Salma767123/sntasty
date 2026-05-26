@@ -245,3 +245,118 @@ export async function finalizePaidOrder(orderId: string): Promise<void> {
     }
   }
 }
+
+/**
+ * Reverse a prior stock decrement — atomic, idempotent.
+ * Only runs if the order was actually decremented (stockDecremented: true).
+ * Sets the flag back to false on success, so future cancellation calls are no-ops.
+ */
+export async function reinstateOrderStock(orderId: string): Promise<boolean> {
+  const claimed = await Order.findOneAndUpdate(
+    { _id: orderId, stockDecremented: true },
+    { $set: { stockDecremented: false } },
+    { new: false },
+  );
+
+  if (!claimed || !claimed.stockDecremented) return false;
+
+  for (const item of claimed.orderItems || []) {
+    try {
+      const qty = Number(item.qty);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+
+      const product = await Product.findById(item.product);
+      if (!product) continue;
+
+      const hasVariants = product.variants && product.variants.length > 0;
+
+      if (hasVariants && item.uom) {
+        const variantIndex = product.variants.findIndex(
+          (v: any) => v.uom === item.uom,
+        );
+        if (variantIndex === -1) continue;
+        const previousStock = product.variants[variantIndex].stock || 0;
+        const newStock = previousStock + qty;
+        product.variants[variantIndex].stock = newStock;
+        await product.save();
+        try {
+          await StockTransaction.create({
+            product: product._id,
+            productName: product.name,
+            variantSku: item.uom,
+            type: "Return",
+            quantity: qty,
+            previousStock,
+            newStock,
+            reference: `Cancelled Order ${claimed._id}`,
+          });
+        } catch {}
+      } else if (!hasVariants) {
+        const previousStock = product.stock || 0;
+        const newStock = previousStock + qty;
+        await Product.findByIdAndUpdate(product._id, { stock: newStock });
+        try {
+          await StockTransaction.create({
+            product: product._id,
+            productName: product.name,
+            type: "Return",
+            quantity: qty,
+            previousStock,
+            newStock,
+            reference: `Cancelled Order ${claimed._id}`,
+          });
+        } catch {}
+      }
+    } catch (err) {
+      console.error(
+        `[payment-finalize] Failed to reinstate stock for product ${item.product}:`,
+        err,
+      );
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Reverse a prior coupon usage — atomic, idempotent.
+ * Only runs if the order had coupon applied (couponApplied: true).
+ */
+export async function reverseCouponUsage(orderId: string): Promise<boolean> {
+  const claimed = await Order.findOneAndUpdate(
+    { _id: orderId, couponApplied: true, couponCode: { $ne: null } },
+    { $set: { couponApplied: false } },
+    { new: false },
+  );
+
+  if (!claimed || !claimed.couponApplied || !claimed.couponCode) return false;
+
+  try {
+    const coupon = await Coupon.findOne({ code: claimed.couponCode.toUpperCase() });
+    if (!coupon) return false;
+
+    coupon.usedCount = Math.max(0, (coupon.usedCount || 0) - 1);
+
+    if (claimed.user && coupon.usedByUsers && coupon.usedByUsers.length > 0) {
+      const userIdStr = claimed.user.toString();
+      const idx = coupon.usedByUsers.findIndex(
+        (u: any) => u.userId.toString() === userIdStr,
+      );
+      if (idx >= 0) {
+        coupon.usedByUsers[idx].count = Math.max(
+          0,
+          (coupon.usedByUsers[idx].count || 1) - 1,
+        );
+        if (coupon.usedByUsers[idx].count === 0) {
+          coupon.usedByUsers.splice(idx, 1);
+        }
+      }
+    }
+    await coupon.save();
+    return true;
+  } catch (err) {
+    console.error(`[payment-finalize] Failed to reverse coupon for order ${orderId}:`, err);
+    await Order.findByIdAndUpdate(orderId, { couponApplied: true });
+    return false;
+  }
+}
