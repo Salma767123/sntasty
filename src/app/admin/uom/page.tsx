@@ -31,6 +31,7 @@ export default function UOMPage() {
   const [formData, setFormData] = useState({
     name: "",
     code: "",
+    weightInGrams: 0,
     isActive: true,
   });
   const [saving, setSaving] = useState(false);
@@ -59,10 +60,15 @@ export default function UOMPage() {
   const handleOpenModal = (uom: any = null) => {
     if (uom) {
       setEditingUom(uom);
-      setFormData({ name: uom.name, code: uom.code, isActive: uom.isActive });
+      setFormData({
+        name: uom.name,
+        code: uom.code,
+        weightInGrams: uom.weightInGrams || 0,
+        isActive: uom.isActive,
+      });
     } else {
       setEditingUom(null);
-      setFormData({ name: "", code: "", isActive: true });
+      setFormData({ name: "", code: "", weightInGrams: 0, isActive: true });
     }
     setError("");
     setFieldErrors({});
@@ -233,6 +239,11 @@ export default function UOMPage() {
                   <span className="font-mono text-[10px] sm:text-xs font-bold bg-[#ece0cc]/30 px-2 py-0.5 rounded text-primary-dark">
                     {uom.code}
                   </span>
+                  {uom.weightInGrams > 0 && (
+                    <span className="text-[9px] sm:text-[10px] font-bold bg-primary/5 px-2 py-0.5 rounded text-primary">
+                      {uom.weightInGrams}g
+                    </span>
+                  )}
                 </div>
 
                 <div
@@ -325,6 +336,29 @@ export default function UOMPage() {
                   />
                   <p className="text-[10px] text-gray-400 px-1">
                     Unique identifier for this unit (e.g. kg, box, pcs).
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">
+                    Weight (grams)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 500 for ½ kg"
+                    value={formData.weightInGrams}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        weightInGrams: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full bg-gray-50 border border-transparent focus:border-primary/20 rounded-xl px-4 py-3 outline-none transition-shadow font-medium tabular-nums focus-visible:ring-2 focus-visible:ring-primary/20 touch-manipulation"
+                  />
+                  <p className="text-[10px] text-gray-400 px-1">
+                    Used for weight-based shipping. 250 = ¼kg, 500 = ½kg, 1000 = 1kg.
                   </p>
                 </div>
 

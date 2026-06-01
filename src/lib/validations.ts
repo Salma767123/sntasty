@@ -131,10 +131,16 @@ export const uomSchema = z.object({
   name: z.string().min(1, "Name is required"),
 });
 
+export const weightSlabSchema = z.object({
+  upToGrams: z.coerce.number().min(1, "Weight must be greater than 0"),
+  rate: z.coerce.number().min(0, "Rate cannot be negative"),
+});
+
 export const shippingRateSchema = z.object({
   location: z.string().min(1, "Please select a location"),
-  rate: z.coerce.number().min(0, "Rate cannot be negative"),
   estimatedDelivery: z.string().min(1, "Estimated delivery is required"),
+  weightSlabs: z.array(weightSlabSchema).min(1, "Add at least one weight slab"),
+  extraPerHalfKgRate: z.coerce.number().min(0).optional(),
 });
 
 export const inventoryPurchaseSchema = z.object({

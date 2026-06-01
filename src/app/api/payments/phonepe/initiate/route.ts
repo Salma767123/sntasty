@@ -111,6 +111,7 @@ export async function POST(req: Request) {
       discountPrice: orderData.discountPrice || 0,
       couponCode: orderData.couponCode || null,
       discount: orderData.discount || 0,
+      totalWeight: orderData.totalWeight || 0,
       totalPrice: orderData.totalPrice,
       status: "Pending",
       isPaid: false,

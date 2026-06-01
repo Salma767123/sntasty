@@ -39,6 +39,7 @@ const OrderSchema = new Schema(
     discountPrice: { type: Number, required: true, default: 0.0 },
     couponCode: { type: String, default: null },
     discount: { type: Number, required: true, default: 0.0 },
+    totalWeight: { type: Number, default: 0 }, // total order weight in grams (for shipping)
     totalPrice: { type: Number, required: true, default: 0.0 },
     isPaid: { type: Boolean, required: true, default: false },
     paidAt: { type: Date },

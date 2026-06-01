@@ -50,6 +50,7 @@ export async function POST(req: Request) {
       taxPrice,
       shippingPrice,
       discountPrice,
+      totalWeight,
       totalPrice,
       couponCode,
       discount,
@@ -101,6 +102,7 @@ export async function POST(req: Request) {
       discountPrice,
       couponCode: couponCode || null,
       discount: discount || 0,
+      totalWeight: totalWeight || 0,
       totalPrice,
     });
 

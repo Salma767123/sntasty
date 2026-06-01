@@ -6,6 +6,7 @@ import Category from "@/models/Category";
 import Coupon from "@/models/Coupon";
 import Settings from "@/models/Settings";
 import ShippingRate from "@/models/ShippingRate";
+import UOM from "@/models/UOM";
 
 const MASKED = "********";
 
@@ -519,6 +520,17 @@ export async function getOrdersData() {
 }
 export async function getShippingRatesData() {
   await connectDB();
-  const rates = await ShippingRate.find({}).sort({ minAmount: 1 }).lean();
+  const rates = await ShippingRate.find({}).sort({ location: 1 }).lean();
   return JSON.parse(JSON.stringify(rates));
+}
+
+// UOM name -> weight (grams) map, for shipping weight calculation at checkout.
+export async function getUomWeightsData() {
+  await connectDB();
+  const uoms = await UOM.find({}, { name: 1, weightInGrams: 1 }).lean();
+  const map: Record<string, number> = {};
+  for (const u of uoms as any[]) {
+    if (u?.name) map[u.name] = Number(u.weightInGrams) || 0;
+  }
+  return map;
 }

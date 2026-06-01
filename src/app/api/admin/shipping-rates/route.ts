@@ -64,8 +64,10 @@ export async function PUT(req: Request) {
     const rate = await ShippingRate.findByIdAndUpdate(
       body._id,
       {
-        rate: body.rate,
         estimatedDelivery: body.estimatedDelivery,
+        weightSlabs: Array.isArray(body.weightSlabs) ? body.weightSlabs : [],
+        extraPerHalfKgRate: Number(body.extraPerHalfKgRate) || 0,
+        rate: Number(body.rate) || 0, // legacy flat fallback
       },
       { new: true }
     );

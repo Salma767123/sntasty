@@ -2,6 +2,7 @@ import {
   getSettingsData,
   getShippingRatesData,
   getCouponsData,
+  getUomWeightsData,
 } from "@/lib/admin-data";
 import CheckoutClient from "./CheckoutClient";
 import Navbar from "@/components/Navbar";
@@ -15,10 +16,11 @@ export const metadata = {
 };
 
 export default async function CheckoutPage() {
-  const [settings, shippingRates, coupons] = await Promise.all([
+  const [settings, shippingRates, coupons, uomWeights] = await Promise.all([
     getSettingsData(),
     getShippingRatesData(),
     getCouponsData(),
+    getUomWeightsData(),
   ]);
 
   return (
@@ -29,6 +31,7 @@ export default async function CheckoutPage() {
           initialSettings={settings}
           initialShippingRates={shippingRates}
           initialCoupons={coupons}
+          initialUomWeights={uomWeights}
         />
       </div>
       <Footer />

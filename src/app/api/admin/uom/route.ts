@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     await connectDB();
-    const { name, code, isActive } = await req.json();
+    const { name, code, isActive, weightInGrams } = await req.json();
 
     const finalCode = code || name.toLowerCase().replace(/\s+/g, "");
 
@@ -45,6 +45,7 @@ export async function POST(req: Request) {
     const uom = await UOM.create({
       name,
       code: finalCode,
+      weightInGrams: Number(weightInGrams) || 0,
       isActive: isActive !== undefined ? isActive : true,
     });
 

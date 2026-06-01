@@ -37,15 +37,22 @@ import CouponInput from "@/components/CouponInput";
 import Link from "next/link";
 import { validateForm, checkoutSchema, FieldErrors } from "@/lib/validations";
 import FormError from "@/components/FormError";
+import {
+  calcCartWeightGrams,
+  calcShippingForWeight,
+  findShippingRateForState,
+} from "@/lib/shipping";
 
 export default function CheckoutClient({
   initialSettings,
   initialShippingRates,
   initialCoupons,
+  initialUomWeights,
 }: {
   initialSettings: any;
   initialShippingRates?: any[];
   initialCoupons?: any[];
+  initialUomWeights?: Record<string, number>;
 }) {
   const { data: session, isPending: status } = authClient.useSession();
   const router = useRouter();
@@ -226,39 +233,31 @@ export default function CheckoutClient({
 
   const itemsPrice = cartTotal;
 
+  // Total order weight (grams) = Σ(uom weight × qty)
+  const totalWeight = calcCartWeightGrams(
+    cartItems as any[],
+    initialUomWeights || {},
+  );
+
   // Find the matching shipping rate for a state (exact match first, then "Other States" fallback)
-  const findShippingRate = () => {
-    if (!initialShippingRates || !address.state) return null;
-
-    // Try exact state match first
-    const exactMatch = initialShippingRates.find(
-      (rate) => rate.location === address.state
-    );
-    if (exactMatch) return exactMatch;
-
-    // Fallback to "Other States" catch-all
-    return initialShippingRates.find(
-      (rate) => rate.location === "Other States"
-    ) || null;
-  };
+  const findShippingRate = () =>
+    findShippingRateForState(initialShippingRates, address.state);
 
   // Get estimated delivery time for selected location
   const getEstimatedDelivery = () => {
     return findShippingRate()?.estimatedDelivery || null;
   };
 
-  // Dynamic Shipping Price Logic - Location Based
+  // Dynamic Shipping Price Logic — weight + location based
   const calculateShipping = () => {
     if (appliedCoupon?.isFreeDelivery) return 0;
 
     if (initialShippingRates && initialShippingRates.length > 0 && address.state) {
       const applicableRate = findShippingRate();
+      if (!applicableRate) return null; // no rate for this state
 
-      // If rate found, return it (0 means free delivery)
-      if (applicableRate) return applicableRate.rate;
-
-      // No rate found — shipping unavailable for this state
-      return null;
+      // Resolve charge for the order's total weight against the state's slabs
+      return calcShippingForWeight(totalWeight, applicableRate);
     }
 
     return null;
@@ -378,6 +377,7 @@ export default function CheckoutClient({
         taxPrice: 0,
         shippingPrice,
         discountPrice: discountAmount,
+        totalWeight,
         totalPrice,
         couponCode: appliedCoupon?.code || null,
         discount: discountAmount,
@@ -1253,7 +1253,7 @@ export default function CheckoutClient({
                   </div>
 
                   {/* Shipping Progress Bar — only when freeShippingThreshold is configured */}
-                  {shippingPrice > 0 && initialSettings?.freeShippingThreshold > 0 && (
+                  {shippingPrice !== null && shippingPrice > 0 && initialSettings?.freeShippingThreshold > 0 && (
                     <div className="pt-2 space-y-2">
                       <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-400">
                         <span>Free Shipping Progress</span>
@@ -1296,6 +1296,16 @@ export default function CheckoutClient({
                       </span>
                     )}
                   </div>
+
+                  {/* Show total order weight */}
+                  {totalWeight > 0 && (
+                    <div className="flex justify-between text-xs text-gray-500 -mt-2">
+                      <span>Total Weight</span>
+                      <span className="font-medium">
+                        {(totalWeight / 1000).toFixed(2)} kg
+                      </span>
+                    </div>
+                  )}
 
                   {/* Show delivery estimate if available */}
                   {estimatedDelivery && shippingPrice !== null && (

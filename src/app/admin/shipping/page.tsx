@@ -1,16 +1,23 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Truck, Plus, Trash2, Save, Loader2, Package, MapPin, Edit2, ChevronDown } from "lucide-react";
+import { Truck, Plus, Trash2, Save, Loader2, Package, MapPin, Edit2, ChevronDown, X } from "lucide-react";
 import toast from "react-hot-toast";
 import { validateForm, shippingRateSchema, FieldErrors } from "@/lib/validations";
 import FormError from "@/components/FormError";
 
+interface WeightSlab {
+  upToGrams: number;
+  rate: number;
+}
+
 interface ShippingRate {
   _id?: string;
   location: string;
-  rate: number;
   estimatedDelivery: string;
+  weightSlabs: WeightSlab[];
+  extraPerHalfKgRate: number;
+  rate?: number; // legacy
 }
 
 const INDIAN_STATES = [
@@ -26,16 +33,120 @@ const INDIAN_STATES = [
 
 const LOCATIONS = [...INDIAN_STATES, "Other States"];
 
+const DEFAULT_SLABS: WeightSlab[] = [
+  { upToGrams: 500, rate: 0 },
+  { upToGrams: 1000, rate: 0 },
+  { upToGrams: 1500, rate: 0 },
+  { upToGrams: 2000, rate: 0 },
+];
+
+const emptyRate = (): ShippingRate => ({
+  location: "",
+  estimatedDelivery: "",
+  weightSlabs: DEFAULT_SLABS.map((s) => ({ ...s })),
+  extraPerHalfKgRate: 0,
+});
+
+// Reusable editor for the weight-slab table (Up to kg → ₹ charge).
+function SlabEditor({
+  slabs,
+  extraPerHalfKgRate,
+  onSlabsChange,
+  onExtraChange,
+}: {
+  slabs: WeightSlab[];
+  extraPerHalfKgRate: number;
+  onSlabsChange: (slabs: WeightSlab[]) => void;
+  onExtraChange: (val: number) => void;
+}) {
+  const updateSlab = (idx: number, field: keyof WeightSlab, value: number) => {
+    onSlabsChange(
+      slabs.map((s, i) => (i === idx ? { ...s, [field]: value } : s)),
+    );
+  };
+  const removeSlab = (idx: number) => {
+    onSlabsChange(slabs.filter((_, i) => i !== idx));
+  };
+  const addSlab = () => {
+    const last = slabs[slabs.length - 1];
+    const nextGrams = last ? last.upToGrams + 500 : 500;
+    onSlabsChange([...slabs, { upToGrams: nextGrams, rate: 0 }]);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-[1fr_1fr_auto] gap-2 px-1">
+        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Up to (kg)</span>
+        <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Charge (₹)</span>
+        <span className="w-8" />
+      </div>
+      {slabs.map((slab, idx) => (
+        <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+          <input
+            type="number"
+            step="0.25"
+            min="0"
+            value={slab.upToGrams / 1000}
+            onChange={(e) =>
+              updateSlab(idx, "upToGrams", Math.round((parseFloat(e.target.value) || 0) * 1000))
+            }
+            placeholder="0.5"
+            className="w-full bg-gray-50 border border-transparent focus:border-primary/20 rounded-xl py-2.5 px-3 outline-none shadow-sm font-black text-sm tabular-nums focus:bg-white focus:ring-2 focus:ring-primary/5"
+          />
+          <input
+            type="number"
+            step="1"
+            min="0"
+            value={slab.rate}
+            onChange={(e) => updateSlab(idx, "rate", parseFloat(e.target.value) || 0)}
+            placeholder="40"
+            className="w-full bg-gray-50 border border-transparent focus:border-primary/20 rounded-xl py-2.5 px-3 outline-none shadow-sm font-black text-sm tabular-nums focus:bg-white focus:ring-2 focus:ring-primary/5"
+          />
+          <button
+            type="button"
+            onClick={() => removeSlab(idx)}
+            className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Remove slab"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={addSlab}
+        className="text-xs font-black uppercase tracking-widest text-primary hover:text-primary-dark flex items-center gap-1.5 px-1 pt-1"
+      >
+        <Plus size={14} /> Add weight slab
+      </button>
+
+      <div className="pt-2">
+        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
+          Extra charge per ½kg above top slab (₹)
+        </label>
+        <input
+          type="number"
+          step="1"
+          min="0"
+          value={extraPerHalfKgRate}
+          onChange={(e) => onExtraChange(parseFloat(e.target.value) || 0)}
+          placeholder="0 = cap at top slab rate"
+          className="w-full bg-gray-50 border border-transparent focus:border-primary/20 rounded-xl py-2.5 px-3 outline-none shadow-sm font-black text-sm tabular-nums focus:bg-white focus:ring-2 focus:ring-primary/5"
+        />
+        <p className="text-[10px] text-gray-400 px-1 mt-1.5">
+          Leave 0 to charge the top slab rate for anything heavier.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function ShippingManagementPage() {
   const [rates, setRates] = useState<ShippingRate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [newRate, setNewRate] = useState<ShippingRate>({
-    location: "",
-    rate: 0,
-    estimatedDelivery: "",
-  });
+  const [newRate, setNewRate] = useState<ShippingRate>(emptyRate());
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
@@ -46,13 +157,23 @@ export default function ShippingManagementPage() {
     try {
       const res = await fetch("/api/admin/shipping-rates");
       const data = await res.json();
-      
-      // Check if we got an error (old schema)
+
       if (data.error) {
-        toast.error("Old shipping data detected. Please re-configure your settings.");
+        toast.error("Failed to load shipping rates");
         setRates([]);
       } else {
-        setRates(data);
+        // Normalise legacy docs (flat rate, no slabs)
+        const normalised: ShippingRate[] = (data as any[]).map((r) => ({
+          ...r,
+          weightSlabs:
+            Array.isArray(r.weightSlabs) && r.weightSlabs.length > 0
+              ? r.weightSlabs
+              : typeof r.rate === "number"
+                ? [{ upToGrams: 1000, rate: r.rate }]
+                : [],
+          extraPerHalfKgRate: r.extraPerHalfKgRate || 0,
+        }));
+        setRates(normalised);
       }
     } catch (error) {
       toast.error("Failed to load shipping rates");
@@ -61,16 +182,29 @@ export default function ShippingManagementPage() {
     }
   };
 
-
   const getAvailableLocations = () => {
     const usedLocations = rates.map((r) => r.location);
     return LOCATIONS.filter((loc) => !usedLocations.includes(loc));
   };
 
+  const sanitizeSlabs = (slabs: WeightSlab[]) =>
+    slabs
+      .filter((s) => s.upToGrams > 0)
+      .sort((a, b) => a.upToGrams - b.upToGrams);
+
   const addRate = async () => {
-    const validation = validateForm(shippingRateSchema, newRate);
+    const payload = {
+      ...newRate,
+      weightSlabs: sanitizeSlabs(newRate.weightSlabs),
+      rate: sanitizeSlabs(newRate.weightSlabs)[0]?.rate || 0,
+    };
+
+    const validation = validateForm(shippingRateSchema, payload);
     if (!validation.success) {
       setFieldErrors(validation.errors);
+      if (validation.errors.weightSlabs) {
+        toast.error("Add at least one weight slab");
+      }
       return;
     }
     setFieldErrors({});
@@ -80,12 +214,12 @@ export default function ShippingManagementPage() {
       const res = await fetch("/api/admin/shipping-rates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newRate),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         toast.success("Shipping rate added successfully");
-        setNewRate({ location: "", rate: 0, estimatedDelivery: "" });
+        setNewRate(emptyRate());
         fetchRates();
       } else {
         const error = await res.json();
@@ -99,12 +233,13 @@ export default function ShippingManagementPage() {
   };
 
   const updateRate = async (rate: ShippingRate) => {
-    if (rate.rate < 0) {
-      toast.error("Rate cannot be negative");
-      return;
-    }
     if (!rate.estimatedDelivery.trim()) {
       toast.error("Please enter estimated delivery time");
+      return;
+    }
+    const slabs = sanitizeSlabs(rate.weightSlabs);
+    if (slabs.length === 0) {
+      toast.error("Add at least one weight slab");
       return;
     }
 
@@ -113,7 +248,11 @@ export default function ShippingManagementPage() {
       const res = await fetch("/api/admin/shipping-rates", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(rate),
+        body: JSON.stringify({
+          ...rate,
+          weightSlabs: slabs,
+          rate: slabs[0]?.rate || 0,
+        }),
       });
 
       if (res.ok) {
@@ -150,6 +289,10 @@ export default function ShippingManagementPage() {
     }
   };
 
+  const patchEditingRate = (id: string, patch: Partial<ShippingRate>) => {
+    setRates(rates.map((r) => (r._id === id ? { ...r, ...patch } : r)));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -174,11 +317,10 @@ export default function ShippingManagementPage() {
                 Shipping Rules
               </h1>
               <p className="text-gray-400 mt-2 font-medium text-[10px] sm:text-sm truncate">
-                Configure location-based shipping charges and delivery times.
+                Weight &amp; location based shipping charges and delivery times.
               </p>
             </div>
           </div>
-
         </div>
 
         {/* Add New Rate Card */}
@@ -189,94 +331,76 @@ export default function ShippingManagementPage() {
               Add New Location
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
-                  Location
-                </label>
-                <div className="relative">
-                  <select
-                    value={newRate.location}
-                    onChange={(e) => {
-                      setNewRate({ ...newRate, location: e.target.value });
-                      setFieldErrors((prev) => ({ ...prev, location: "" }));
-                    }}
-                    className={`w-full bg-gray-50 border ${fieldErrors.location ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 pr-10 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-4 focus:ring-primary/5 appearance-none touch-manipulation`}
-                  >
-                    <option value="">Select location</option>
-                    {availableLocations.map((loc) => (
-                      <option key={loc} value={loc}>
-                        {loc}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
+                    Location
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={newRate.location}
+                      onChange={(e) => {
+                        setNewRate({ ...newRate, location: e.target.value });
+                        setFieldErrors((prev) => ({ ...prev, location: "" }));
+                      }}
+                      className={`w-full bg-gray-50 border ${fieldErrors.location ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 pr-10 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-4 focus:ring-primary/5 appearance-none touch-manipulation`}
+                    >
+                      <option value="">Select location</option>
+                      {availableLocations.map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown size={18} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
+                  <FormError message={fieldErrors.location} />
                 </div>
-                <FormError message={fieldErrors.location} />
+
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
+                    Estimated Delivery Time
+                  </label>
+                  <input
+                    type="text"
+                    value={newRate.estimatedDelivery}
+                    onChange={(e) => {
+                      setNewRate({ ...newRate, estimatedDelivery: e.target.value });
+                      setFieldErrors((prev) => ({ ...prev, estimatedDelivery: "" }));
+                    }}
+                    placeholder="e.g., 2-3 days"
+                    className={`w-full bg-gray-50 border ${fieldErrors.estimatedDelivery ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-4 focus:ring-primary/5 touch-manipulation`}
+                  />
+                  <FormError message={fieldErrors.estimatedDelivery} />
+                </div>
               </div>
 
               <div>
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
-                  Shipping Charge (₹)
+                  Weight Slabs
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={newRate.rate}
-                  onChange={(e) => {
-                    setNewRate({
-                      ...newRate,
-                      rate: parseFloat(e.target.value) || 0,
-                    });
-                    setFieldErrors((prev) => ({ ...prev, rate: "" }));
-                  }}
-                  placeholder="Enter 0 for free"
-                  className={`w-full bg-gray-50 border ${fieldErrors.rate ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 outline-none transition-all shadow-sm font-black text-base tabular-nums focus:bg-white focus:ring-4 focus:ring-primary/5 touch-manipulation`}
+                <SlabEditor
+                  slabs={newRate.weightSlabs}
+                  extraPerHalfKgRate={newRate.extraPerHalfKgRate}
+                  onSlabsChange={(weightSlabs) => setNewRate({ ...newRate, weightSlabs })}
+                  onExtraChange={(extraPerHalfKgRate) => setNewRate({ ...newRate, extraPerHalfKgRate })}
                 />
-                <FormError message={fieldErrors.rate} />
               </div>
+            </div>
 
-              <div>
-                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
-                  Estimated Delivery Time
-                </label>
-                <input
-                  type="text"
-                  value={newRate.estimatedDelivery}
-                  onChange={(e) => {
-                    setNewRate({
-                      ...newRate,
-                      estimatedDelivery: e.target.value,
-                    });
-                    setFieldErrors((prev) => ({ ...prev, estimatedDelivery: "" }));
-                  }}
-                  placeholder="e.g., 2-3 days"
-                  className={`w-full bg-gray-50 border ${fieldErrors.estimatedDelivery ? "border-red-300" : "border-transparent"} focus:border-primary/20 rounded-xl py-3.5 px-4 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-4 focus:ring-primary/5 touch-manipulation`}
-                />
-                <FormError message={fieldErrors.estimatedDelivery} />
-              </div>
-
-              <div className="flex items-end">
-                <button
-                  onClick={addRate}
-                  disabled={saving}
-                  className="w-full bg-primary hover:bg-primary-dark text-white py-3.5 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation text-xs uppercase tracking-widest"
-                >
-                  {saving ? (
-                    <Loader2 className="animate-spin" size={18} />
-                  ) : (
-                    <>
-                      <Save size={18} />
-                      Save
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={addRate}
+                disabled={saving}
+                className="bg-primary hover:bg-primary-dark text-white py-3.5 px-8 rounded-xl font-bold transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation text-xs uppercase tracking-widest"
+              >
+                {saving ? <Loader2 className="animate-spin" size={18} /> : <><Save size={18} /> Save Location</>}
+              </button>
             </div>
             <p className="text-xs text-gray-500 mt-4 flex items-center gap-2">
               <Package size={12} />
-              Tip: Enter 0 for free delivery to that location
+              Tip: Enter 0 charge for free delivery in a slab.
             </p>
           </div>
         )}
@@ -298,130 +422,105 @@ export default function ShippingManagementPage() {
               {rates.map((rate) => (
                 <div
                   key={rate._id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-5 border border-gray-100 rounded-2xl hover:border-primary/30 transition-all gap-4"
+                  className="p-5 border border-gray-100 rounded-2xl hover:border-primary/30 transition-all"
                 >
                   {editingId === rate._id ? (
-                    <>
-                      <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1.5 leading-none">
-                            Location
-                          </p>
-                          <p className="text-[13px] sm:text-lg font-black text-primary-dark">
-                            {rate.location}
-                          </p>
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[13px] sm:text-lg font-black text-primary-dark flex items-center gap-2">
+                          <MapPin size={16} className="text-primary" />
+                          {rate.location}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateRate(rate)}
+                            disabled={saving}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2.5 rounded-xl transition-colors"
+                          >
+                            <Save size={18} />
+                          </button>
+                          <button
+                            onClick={() => { setEditingId(null); fetchRates(); }}
+                            className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 rounded-xl transition-colors"
+                          >
+                            <X size={18} />
+                          </button>
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1.5 leading-none">
-                            Shipping Charge (₹)
-                          </p>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={rate.rate}
-                            onChange={(e) =>
-                              setRates(
-                                rates.map((r) =>
-                                  r._id === rate._id
-                                    ? { ...r, rate: parseFloat(e.target.value) || 0 }
-                                    : r
-                                )
-                              )
-                            }
-                            placeholder="Enter 0 for free"
-                            className="w-full bg-gray-50 border border-gray-200 focus:border-primary/20 rounded-xl py-2 px-3 outline-none transition-all shadow-sm font-black text-base tabular-nums focus:bg-white focus:ring-2 focus:ring-primary/5"
-                          />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[8px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1.5 leading-none">
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
                             Estimated Delivery
-                          </p>
+                          </label>
                           <input
                             type="text"
                             value={rate.estimatedDelivery}
-                            onChange={(e) =>
-                              setRates(
-                                rates.map((r) =>
-                                  r._id === rate._id
-                                    ? { ...r, estimatedDelivery: e.target.value }
-                                    : r
-                                )
-                              )
-                            }
-                            className="w-full bg-gray-50 border border-gray-200 focus:border-primary/20 rounded-xl py-2 px-3 outline-none transition-all shadow-sm font-black text-base focus:bg-white focus:ring-2 focus:ring-primary/5"
+                            onChange={(e) => patchEditingRate(rate._id!, { estimatedDelivery: e.target.value })}
+                            className="w-full bg-gray-50 border border-transparent focus:border-primary/20 rounded-xl py-3 px-4 outline-none shadow-sm font-black text-base focus:bg-white focus:ring-2 focus:ring-primary/5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2 px-1">
+                            Weight Slabs
+                          </label>
+                          <SlabEditor
+                            slabs={rate.weightSlabs}
+                            extraPerHalfKgRate={rate.extraPerHalfKgRate}
+                            onSlabsChange={(weightSlabs) => patchEditingRate(rate._id!, { weightSlabs })}
+                            onExtraChange={(extraPerHalfKgRate) => patchEditingRate(rate._id!, { extraPerHalfKgRate })}
                           />
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => updateRate(rate)}
-                          disabled={saving}
-                          className="text-green-600 hover:text-green-700 hover:bg-green-50 p-2.5 sm:p-3 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-500 focus-visible:outline-none touch-manipulation"
-                        >
-                          <Save size={18} />
-                        </button>
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="text-gray-500 hover:text-gray-700 hover:bg-gray-50 p-2.5 sm:p-3 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-gray-500 focus-visible:outline-none touch-manipulation"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </>
+                    </div>
                   ) : (
-                    <>
-                      <div className="flex flex-wrap items-center gap-4 sm:gap-6 w-full sm:w-auto">
-                        <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1.5 leading-none">
-                            Location
-                          </p>
-                          <p className="text-[13px] sm:text-lg font-black text-primary-dark truncate flex items-center gap-2">
-                            <MapPin size={16} className="text-primary" />
-                            {rate.location}
-                          </p>
-                        </div>
-                        <div className="hidden sm:block h-10 w-px bg-gray-50" />
-                        <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1.5 leading-none">
-                            Shipping Charge
-                          </p>
-                          <p className="text-lg sm:text-2xl font-serif font-black text-primary tabular-nums">
-                            {rate.rate === 0 ? (
-                              <span className="text-green-600 flex items-center gap-1">
-                                FREE
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[13px] sm:text-lg font-black text-primary-dark truncate flex items-center gap-2 mb-1">
+                          <MapPin size={16} className="text-primary" />
+                          {rate.location}
+                        </p>
+                        <p className="text-xs font-bold text-gray-400 mb-3">
+                          {rate.estimatedDelivery}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {[...rate.weightSlabs]
+                            .sort((a, b) => a.upToGrams - b.upToGrams)
+                            .map((slab, i) => (
+                              <span
+                                key={i}
+                                className="text-[11px] font-black bg-primary/5 text-primary-dark px-2.5 py-1 rounded-lg tabular-nums"
+                              >
+                                ≤{slab.upToGrams / 1000}kg ·{" "}
+                                {slab.rate === 0 ? (
+                                  <span className="text-green-600">FREE</span>
+                                ) : (
+                                  `₹${slab.rate}`
+                                )}
                               </span>
-                            ) : (
-                              `₹${rate.rate}`
-                            )}
-                          </p>
-                        </div>
-                        <div className="hidden sm:block h-10 w-px bg-gray-50" />
-                        <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[10px] text-gray-400 uppercase font-black tracking-widest mb-1.5 leading-none">
-                            Estimated Delivery
-                          </p>
-                          <p className="text-sm sm:text-base font-bold text-gray-700">
-                            {rate.estimatedDelivery}
-                          </p>
+                            ))}
+                          {rate.extraPerHalfKgRate > 0 && (
+                            <span className="text-[11px] font-black bg-amber-50 text-amber-700 px-2.5 py-1 rounded-lg tabular-nums">
+                              +₹{rate.extraPerHalfKgRate}/½kg extra
+                            </span>
+                          )}
                         </div>
                       </div>
 
                       <div className="flex gap-2 self-end sm:self-auto">
                         <button
                           onClick={() => setEditingId(rate._id!)}
-                          className="text-primary hover:text-primary-dark hover:bg-primary/5 p-2.5 sm:p-3 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary focus-visible:outline-none touch-manipulation"
+                          className="text-primary hover:text-primary-dark hover:bg-primary/5 p-2.5 sm:p-3 rounded-xl transition-colors"
                         >
                           <Edit2 size={18} />
                         </button>
                         <button
                           onClick={() => deleteRate(rate._id!)}
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2.5 sm:p-3 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-500 focus-visible:outline-none touch-manipulation"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2.5 sm:p-3 rounded-xl transition-colors"
                         >
                           <Trash2 size={18} />
                         </button>
                       </div>
-                    </>
+                    </div>
                   )}
                 </div>
               ))}
