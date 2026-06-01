@@ -104,6 +104,11 @@ export default function ShopClient({
     fetchSubCategories();
   }, [activeCategory, categories]);
 
+  const lowestPrice = (p: any) =>
+    p.variants && p.variants.length > 0
+      ? Math.min(...p.variants.map((v: any) => v.price))
+      : p.price;
+
   const filteredProducts = useMemo(() => {
     return products
       .filter((p) => {
@@ -120,8 +125,8 @@ export default function ShopClient({
           p.name?.toLowerCase().includes(query) ||
           p.category?.toLowerCase().includes(query) ||
           (p.subCategory?.name || "").toLowerCase().includes(query);
-        const matchesPrice =
-          p.price >= priceRange[0] && p.price <= priceRange[1];
+        const lp = lowestPrice(p);
+        const matchesPrice = lp >= priceRange[0] && lp <= priceRange[1];
         return (
           matchesCategory &&
           matchesSubCategory &&
@@ -130,8 +135,10 @@ export default function ShopClient({
         );
       })
       .sort((a, b) => {
-        if (sortBy === "Price: Low to High") return a.price - b.price;
-        if (sortBy === "Price: High to Low") return b.price - a.price;
+        if (sortBy === "Price: Low to High")
+          return lowestPrice(a) - lowestPrice(b);
+        if (sortBy === "Price: High to Low")
+          return lowestPrice(b) - lowestPrice(a);
         return 0; // "Recommended"
       });
   }, [
@@ -478,6 +485,15 @@ export default function ShopClient({
                 <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
                   <AnimatePresence mode="popLayout">
                     {paginatedProducts.map((p, idx) => {
+                      const lowestVariant =
+                        p.variants && p.variants.length > 0
+                          ? p.variants.reduce((min: any, v: any) =>
+                              v.price < min.price ? v : min,
+                            )
+                          : null;
+                      const displayPrice = lowestVariant
+                        ? lowestVariant.price
+                        : p.price;
                       return (
                         <motion.div
                           layout
@@ -550,9 +566,9 @@ export default function ShopClient({
 
                                 <div className="flex items-baseline gap-2 mb-4">
                                   <p className="text-xl font-sans font-black text-brown">
-                                    ₹{p.price}
+                                    ₹{displayPrice}
                                   </p>
-                                  {p.mrp && p.mrp > p.price && (
+                                  {p.mrp && p.mrp > displayPrice && (
                                     <span className="text-xs font-sans text-primary/30 line-through">
                                       ₹{p.mrp}
                                     </span>
@@ -564,13 +580,12 @@ export default function ShopClient({
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  if (p.variants && p.variants.length > 0) {
-                                    const bestVariant = p.variants[0];
+                                  if (lowestVariant) {
                                     addToCart(
                                       {
                                         ...p,
-                                        price: bestVariant.price,
-                                        uom: bestVariant.uom,
+                                        price: lowestVariant.price,
+                                        uom: lowestVariant.uom,
                                       },
                                       1,
                                     );

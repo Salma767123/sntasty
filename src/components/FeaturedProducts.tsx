@@ -65,7 +65,17 @@ export default function FeaturedProducts({
 
         {/* Product Grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5 lg:gap-6">
-          {products.map((product, i) => (
+          {products.map((product, i) => {
+            const lowestVariant =
+              product.variants && product.variants.length > 0
+                ? product.variants.reduce((min: any, v: any) =>
+                    v.price < min.price ? v : min,
+                  )
+                : null;
+            const displayPrice = lowestVariant
+              ? lowestVariant.price
+              : product.price;
+            return (
             <motion.div
               key={product._id}
               initial={{ opacity: 0, y: 20 }}
@@ -98,11 +108,11 @@ export default function FeaturedProducts({
                   )}
 
                   {/* Discount Badge */}
-                  {product.mrp && product.mrp > product.price && (
+                  {product.mrp && product.mrp > displayPrice && (
                     <div className="absolute top-3 right-3 bg-[#f8bf51] text-[#234d1b] px-2.5 py-1 rounded-full shadow-lg">
                       <span className="text-[10px] font-bold">
                         {Math.round(
-                          ((product.mrp - product.price) / product.mrp) * 100,
+                          ((product.mrp - displayPrice) / product.mrp) * 100,
                         )}
                         % OFF
                       </span>
@@ -119,7 +129,7 @@ export default function FeaturedProducts({
                         addToWishlist(product);
                       }
                     }}
-                    className={`absolute top-3 ${product.mrp && product.mrp > product.price ? 'left-3' : 'right-3'} w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-110 ${
+                    className={`absolute top-3 ${product.mrp && product.mrp > displayPrice ? 'left-3' : 'right-3'} w-8 h-8 rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-110 ${
                       isInWishlist(product._id)
                         ? 'bg-red-500 text-white'
                         : 'bg-white/90 backdrop-blur-sm text-[#234d1b] hover:bg-red-500 hover:text-white'
@@ -136,9 +146,9 @@ export default function FeaturedProducts({
                   </h3>
                   <div className="flex items-baseline gap-2 mb-3">
                     <span className="text-xl font-black text-[#234d1b]">
-                      ₹{product.price}
+                      ₹{displayPrice}
                     </span>
-                    {product.mrp && product.mrp > product.price && (
+                    {product.mrp && product.mrp > displayPrice && (
                       <span className="text-xs text-[#234d1b]/30 line-through font-medium">
                         ₹{product.mrp}
                       </span>
@@ -152,7 +162,18 @@ export default function FeaturedProducts({
                 <button
                   onClick={(e) => {
                     e.preventDefault();
-                    addToCart(product, 1);
+                    if (lowestVariant) {
+                      addToCart(
+                        {
+                          ...product,
+                          price: lowestVariant.price,
+                          uom: lowestVariant.uom,
+                        },
+                        1,
+                      );
+                    } else {
+                      addToCart(product, 1);
+                    }
                   }}
                   className="w-full bg-[#234d1b] hover:bg-[#f8bf51] text-white hover:text-[#234d1b] py-2.5 px-4 rounded-xl font-bold text-sm transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-95"
                 >
@@ -161,7 +182,8 @@ export default function FeaturedProducts({
                 </button>
               </div>
             </motion.div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </section>

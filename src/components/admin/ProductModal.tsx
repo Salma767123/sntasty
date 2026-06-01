@@ -175,7 +175,7 @@ export default function ProductModal({
     let basePrice = formData.price;
 
     if (newVariants.length > 0) {
-      basePrice = newVariants[0].price;
+      basePrice = Math.min(...newVariants.map((v) => Number(v.price) || 0));
     }
 
     setFormData({
