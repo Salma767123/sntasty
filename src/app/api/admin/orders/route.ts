@@ -7,11 +7,24 @@ import { revalidatePath } from "next/cache";
 
 export async function GET(req: Request) {
   try {
+    const session = await auth.api.getSession({ headers: await headers() });
+    if (!session || (session.user as any).role !== "admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await connectDB();
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
+    // paymentStatus: "paid" (default — preserves prior behaviour) | "unpaid" | "all".
+    // "unpaid" surfaces stuck/paid-but-not-marked orders that the old default hid.
+    const paymentStatus = searchParams.get("paymentStatus");
 
-    const query: any = { isPaid: true };
+    const query: any = {};
+    if (paymentStatus === "unpaid") {
+      query.isPaid = false;
+    } else if (paymentStatus !== "all") {
+      query.isPaid = true;
+    }
     if (status && status !== "All") {
       query.status = status;
     }

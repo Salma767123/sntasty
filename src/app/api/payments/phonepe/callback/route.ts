@@ -143,8 +143,10 @@ export async function POST(req: Request) {
     const paymentSuccess = state === "COMPLETED";
 
     if (!paymentSuccess) {
+      // Record the latest status but KEEP paymentResult.id = the original merchantOrderId.
+      // Overwriting it with the PhonePe txnId here would break later lookups by the
+      // webhook and the reconciliation sweep (which match on the MO… merchantOrderId).
       await Order.findByIdAndUpdate(order._id, {
-        "paymentResult.id": phonepeTxnId || merchantOrderId,
         "paymentResult.status": String(state).toLowerCase(),
       });
 

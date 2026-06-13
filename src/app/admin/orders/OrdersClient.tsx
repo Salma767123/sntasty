@@ -28,6 +28,8 @@ import {
   TrendingUp,
   DollarSign,
   Truck,
+  RefreshCw,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
@@ -67,6 +69,8 @@ export default function OrdersClient({
   const [cancelOrder, setCancelOrder] = useState<any>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [paymentFilter, setPaymentFilter] = useState("All"); // All | Paid | Unpaid
+  const [recheckingId, setRecheckingId] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -75,7 +79,9 @@ export default function OrdersClient({
   const fetchOrders = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/admin/orders");
+      // Fetch ALL orders (incl. unpaid) so the payment filter & re-check flow can see
+      // stuck/paid-but-not-marked orders. Payment filtering is done client-side below.
+      const res = await fetch("/api/admin/orders?paymentStatus=all");
       const data = await res.json();
       const normalizedData = data.map((order: any) => ({
         ...order,
@@ -87,6 +93,58 @@ export default function OrdersClient({
       toast.error("Failed to fetch orders");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Re-verify a stuck PhonePe order against PhonePe and mark it paid + finalize if completed.
+  const handleRecheckPayment = async (order: any) => {
+    if (!order || recheckingId) return;
+    setRecheckingId(order._id);
+    try {
+      const res = await fetch(`/api/admin/orders/${order._id}/recheck-payment`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Re-check failed");
+
+      switch (data.outcome) {
+        case "marked_paid":
+          toast.success("Payment verified — order marked PAID");
+          break;
+        case "already_paid":
+          toast.success("Order is already paid");
+          break;
+        case "pending":
+          toast("PhonePe still reports this payment as PENDING", { icon: "⏳" });
+          break;
+        case "failed":
+          toast.error(`PhonePe reports payment as ${data.state || "not completed"}`);
+          break;
+        case "config_missing":
+          toast.error("PhonePe is not configured in Settings");
+          break;
+        case "no_merchant_id":
+          toast.error("This order has no PhonePe reference to check");
+          break;
+        default:
+          toast.error(
+            `Could not verify (${data.outcome}${data.detail ? ": " + data.detail : ""})`,
+          );
+      }
+
+      // Keep the open detail modal in sync so it doesn't show a stale "Unpaid".
+      if (
+        (data.outcome === "marked_paid" || data.outcome === "already_paid") &&
+        viewingOrder?._id === order._id
+      ) {
+        setViewingOrder({ ...viewingOrder, isPaid: true, paidAt: new Date().toISOString() });
+      }
+
+      await fetchOrders();
+    } catch (err: any) {
+      toast.error(err.message || "Re-check failed");
+    } finally {
+      setRecheckingId(null);
     }
   };
 
@@ -307,6 +365,11 @@ export default function OrdersClient({
       const matchesStatus =
         statusFilter === "All" || order.status === statusFilter;
 
+      const matchesPayment =
+        paymentFilter === "All" ||
+        (paymentFilter === "Paid" && order.isPaid) ||
+        (paymentFilter === "Unpaid" && !order.isPaid);
+
       let matchesDate = true;
       if (dateRange !== "AllTime") {
         const orderDate = new Date(order.createdAt);
@@ -324,9 +387,9 @@ export default function OrdersClient({
         }
       }
 
-      return matchesSearch && matchesStatus && matchesDate;
+      return matchesSearch && matchesStatus && matchesPayment && matchesDate;
     });
-  }, [orders, searchTerm, statusFilter, dateRange]);
+  }, [orders, searchTerm, statusFilter, paymentFilter, dateRange]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -460,6 +523,32 @@ export default function OrdersClient({
               {s}
             </button>
           ))}
+        </div>
+
+        {/* Payment Filter — surfaces stuck/unpaid orders (e.g. PhonePe paid-but-not-marked) */}
+        <div className="flex items-center gap-1 bg-[#ece0cc] p-1 rounded-lg sm:rounded-xl">
+          {["All", "Paid", "Unpaid"].map((p) => {
+            const unpaidCount =
+              p === "Unpaid" ? orders.filter((o) => !o.isPaid).length : 0;
+            return (
+              <button
+                key={p}
+                onClick={() => setPaymentFilter(p)}
+                className={`relative px-3 sm:px-4 py-1.5 sm:py-2 rounded-md sm:rounded-lg text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-colors whitespace-nowrap focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation ${
+                  paymentFilter === p
+                    ? "bg-white text-primary-dark shadow-sm"
+                    : "text-gray-400 hover:text-gray-600 hover:bg-white/50"
+                }`}
+              >
+                {p}
+                {p === "Unpaid" && unpaidCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[8px] align-middle">
+                    {unpaidCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
 
         {/* Date Filter */}
@@ -660,6 +749,22 @@ export default function OrdersClient({
                         >
                           <FileText size={16} />
                         </Link>
+                        {!order.isPaid &&
+                          /phonepe/i.test(order.paymentMethod || "") &&
+                          order.status !== "Cancelled" && (
+                            <button
+                              onClick={() => handleRecheckPayment(order)}
+                              disabled={recheckingId === order._id}
+                              className="p-2.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded-xl transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none touch-manipulation disabled:opacity-50"
+                              title="Re-check PhonePe payment"
+                            >
+                              {recheckingId === order._id ? (
+                                <Loader2 size={16} className="animate-spin" />
+                              ) : (
+                                <RefreshCw size={16} />
+                              )}
+                            </button>
+                          )}
                         {order.status !== "Cancelled" && order.status !== "Delivered" && (
                           <button
                             onClick={() => openCancelModal(order)}
@@ -946,6 +1051,22 @@ export default function OrdersClient({
                     <p className="text-[10px] sm:text-xs text-gray-400 mt-2 font-black uppercase tracking-widest ml-1">
                       via {viewingOrder.paymentMethod}
                     </p>
+                    {!viewingOrder.isPaid &&
+                      /phonepe/i.test(viewingOrder.paymentMethod || "") && (
+                        <button
+                          onClick={() => handleRecheckPayment(viewingOrder)}
+                          disabled={recheckingId === viewingOrder._id}
+                          className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+                          title="Verify this payment with PhonePe and mark paid if completed"
+                        >
+                          {recheckingId === viewingOrder._id ? (
+                            <Loader2 size={14} className="animate-spin" />
+                          ) : (
+                            <RefreshCw size={14} />
+                          )}
+                          Re-check PhonePe Payment
+                        </button>
+                      )}
                   </div>
                 </div>
 

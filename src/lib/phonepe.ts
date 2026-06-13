@@ -139,6 +139,10 @@ export function invalidateAccessToken(config: PhonePeV2Config) {
  * Verify PhonePe v2 webhook signature.
  * Webhook Auth header = SHA256(username:password) in hex.
  * The username/password are configured separately in PhonePe dashboard for webhook auth.
+ *
+ * Hardened: trims surrounding whitespace and strips an optional scheme token
+ * (e.g. "SHA256 <hash>") before the constant-time hex compare, so minor header
+ * formatting differences don't silently reject a genuine webhook.
  */
 export function verifyWebhookAuth(
   receivedAuth: string,
@@ -146,11 +150,127 @@ export function verifyWebhookAuth(
   password: string,
 ): boolean {
   if (!receivedAuth || !username || !password) return false;
+
+  let token = receivedAuth.trim();
+  // Strip an optional scheme prefix like "SHA256 " / "Basic " — PhonePe sends the
+  // bare hex hash, but some gateways/proxies prepend a scheme. Hex digests have no
+  // spaces, so this only ever removes a leading scheme word.
+  const spaceIdx = token.indexOf(" ");
+  if (spaceIdx > -1) token = token.slice(spaceIdx + 1).trim();
+
   const expected = crypto
     .createHash("sha256")
     .update(`${username}:${password}`)
     .digest("hex");
-  return expected.toLowerCase() === receivedAuth.toLowerCase();
+
+  const a = Buffer.from(expected.toLowerCase());
+  const b = Buffer.from(token.toLowerCase());
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
+}
+
+export interface PhonePeStatusResult {
+  ok: boolean;
+  httpStatus: number;
+  /** Normalised PhonePe order state: COMPLETED | PENDING | FAILED | <error marker> */
+  state: string;
+  phonepeTxnId?: string;
+  data: any;
+  error?: string;
+}
+
+/**
+ * Fetch the authoritative order state from PhonePe's Order Status API.
+ * Shared by the client callback, the webhook fallback, and the reconciliation cron
+ * so every path verifies against the SAME source of truth (the PhonePe API, not a
+ * client redirect or a potentially-spoofed webhook payload).
+ *
+ * Never throws — returns { ok:false, ... } on OAuth/network/parse/HTTP errors so
+ * batch callers (cron) can continue past a single failure.
+ */
+export async function fetchPhonePeOrderStatus(
+  config: PhonePeV2Config,
+  merchantOrderId: string,
+): Promise<PhonePeStatusResult> {
+  const statusUrl = `${config.urls.status}/${encodeURIComponent(
+    merchantOrderId,
+  )}/status?details=true&errorContext=true`;
+
+  let attempt = 0;
+  let statusRes: Response | null = null;
+  let statusData: any = null;
+
+  while (attempt < 2) {
+    attempt += 1;
+
+    let token: string;
+    try {
+      token = await getAccessToken(config);
+    } catch (oauthErr: any) {
+      return {
+        ok: false,
+        httpStatus: 0,
+        state: "AUTH_ERROR",
+        data: null,
+        error: oauthErr?.message || "PhonePe authentication failed",
+      };
+    }
+
+    try {
+      statusRes = await fetch(statusUrl, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          accept: "application/json",
+          Authorization: `O-Bearer ${token}`,
+        },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch (fetchErr: any) {
+      return {
+        ok: false,
+        httpStatus: 0,
+        state: "NETWORK_ERROR",
+        data: null,
+        error: fetchErr?.message || "Could not reach PhonePe",
+      };
+    }
+
+    if (statusRes.status === 401 && attempt < 2) {
+      invalidateAccessToken(config);
+      continue;
+    }
+
+    try {
+      statusData = await statusRes.json();
+    } catch {
+      const raw = await statusRes.text().catch(() => "");
+      return {
+        ok: false,
+        httpStatus: statusRes.status,
+        state: "BAD_RESPONSE",
+        data: raw.slice(0, 300),
+        error: "PhonePe returned a non-JSON response",
+      };
+    }
+    break;
+  }
+
+  if (!statusRes || !statusRes.ok) {
+    return {
+      ok: false,
+      httpStatus: statusRes?.status || 0,
+      state: String(statusData?.state || "FAILED"),
+      data: statusData,
+      error: statusData?.message || "Status check failed",
+    };
+  }
+
+  const state: string = statusData?.state || "FAILED";
+  const phonepeTxnId: string | undefined =
+    statusData?.paymentDetails?.[0]?.transactionId || statusData?.orderId;
+
+  return { ok: true, httpStatus: statusRes.status, state, phonepeTxnId, data: statusData };
 }
 
 export function generateMerchantOrderId(): string {

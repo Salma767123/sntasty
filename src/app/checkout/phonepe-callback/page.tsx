@@ -35,7 +35,7 @@ function PhonePeCallbackContent() {
     let cancelled = false;
     let pendingTimeoutId: ReturnType<typeof setTimeout> | null = null;
     let successRedirectId: ReturnType<typeof setTimeout> | null = null;
-    const MAX_PENDING_POLLS = 6;
+    const MAX_PENDING_POLLS = 18;
     const POLL_INTERVAL_MS = 5000;
 
     const verify = async () => {
@@ -58,13 +58,25 @@ function PhonePeCallbackContent() {
           return;
         }
 
-        if (data.status === "PENDING" && pendingPolls < MAX_PENDING_POLLS) {
-          pendingPolls += 1;
+        if (data.status === "PENDING") {
+          if (pendingPolls < MAX_PENDING_POLLS) {
+            pendingPolls += 1;
+            setStatus("pending");
+            setMessage(
+              "Payment is still being processed by your bank. We'll check again in a few seconds...",
+            );
+            pendingTimeoutId = setTimeout(verify, POLL_INTERVAL_MS);
+            return;
+          }
+          // Poll budget exhausted but PhonePe still reports PENDING (slow UPI settlement).
+          // Do NOT show a failure — the server-side reconciliation sweep will confirm the
+          // payment and email the invoice automatically once the bank settles.
           setStatus("pending");
           setMessage(
-            "Payment is still being processed by your bank. We'll check again in a few seconds...",
+            "Your payment is still being confirmed by your bank. If the amount was debited, " +
+              "your order will be confirmed automatically and we'll email you the invoice — " +
+              "you can also check 'My Orders' in a few minutes. Please do not pay again.",
           );
-          pendingTimeoutId = setTimeout(verify, POLL_INTERVAL_MS);
           return;
         }
 
