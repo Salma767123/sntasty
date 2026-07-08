@@ -9,6 +9,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { Providers } from "@/components/Providers";
 import { NavbarDataProvider } from "@/context/NavbarDataContext";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import InstallPrompt from "@/components/InstallPrompt";
 import { cn } from "@/lib/utils";
 import { unstable_cache } from "next/cache";
 
@@ -172,6 +173,7 @@ export default async function RootLayout({
           </Suspense>
         </Providers>
         <ServiceWorkerRegistrar />
+        <InstallPrompt />
       </body>
     </html>
   );
