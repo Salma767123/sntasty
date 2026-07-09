@@ -1,4 +1,4 @@
-import type { Metadata, Viewport } from "next";
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Poppins, Baloo_2, Geist } from "next/font/google";
 import "./globals.css";
@@ -8,17 +8,8 @@ import Category from "@/models/Category";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { Providers } from "@/components/Providers";
 import { NavbarDataProvider } from "@/context/NavbarDataContext";
-import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
-import InstallPrompt from "@/components/InstallPrompt";
 import { cn } from "@/lib/utils";
 import { unstable_cache } from "next/cache";
-
-export const viewport: Viewport = {
-  themeColor: "#3d7935",
-  width: "device-width",
-  initialScale: 1,
-  viewportFit: "cover",
-};
 
 const poppins = Poppins({
   weight: ["300", "400", "500", "600", "700", "800", "900"],
@@ -44,26 +35,13 @@ const getCachedSeoSettings = unstable_cache(
   { tags: ["seo-settings"], revalidate: 60 }
 );
 
-// Shared PWA-related metadata applied regardless of dynamic SEO settings.
-const pwaMeta: Metadata = {
-  manifest: "/manifest.webmanifest",
-  applicationName: "Sai Nandhini Tasty World",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Tasty World",
-  },
-};
-
 export async function generateMetadata(): Promise<Metadata> {
-  const defaultMeta: Metadata = {
-    ...pwaMeta,
+  const defaultMeta = {
     title: "Sai Nandhini Tasty World | Authentic South Indian Delicacies",
     description:
       "Experience the magic of traditional sweets and savories crafted with love and the finest ingredients.",
     keywords:
       "sweets, snacks, pickles, south indian food, authentic delicacies",
-    icons: { apple: "/icons/apple-touch-icon.png" },
   };
 
   try {
@@ -72,22 +50,18 @@ export async function generateMetadata(): Promise<Metadata> {
     if (settings) {
       const siteName = settings.shopName || "Sai Nandhini Tasty World";
       return {
-        ...pwaMeta,
         title: settings.seo?.metaTitle || siteName,
         description: settings.seo?.metaDescription || defaultMeta.description,
         keywords: settings.seo?.keywords
           ? settings.seo.keywords.split(",").map((k: string) => k.trim())
-          : (defaultMeta.keywords as string),
+          : defaultMeta.keywords.split(","),
         openGraph: {
           title: settings.seo?.metaTitle || siteName,
           description: settings.seo?.metaDescription || defaultMeta.description,
           images: settings.seo?.ogImage ? [settings.seo.ogImage] : [],
           siteName: siteName,
         },
-        icons: {
-          apple: "/icons/apple-touch-icon.png",
-          ...(settings.favicon ? { icon: settings.favicon } : {}),
-        },
+        icons: settings.favicon ? { icon: settings.favicon } : undefined,
       };
     }
   } catch (e) {
@@ -172,8 +146,6 @@ export default async function RootLayout({
             </NavbarDataProvider>
           </Suspense>
         </Providers>
-        <ServiceWorkerRegistrar />
-        <InstallPrompt />
       </body>
     </html>
   );

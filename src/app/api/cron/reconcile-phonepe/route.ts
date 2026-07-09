@@ -42,10 +42,7 @@ async function handle(req: Request) {
 
     const now = Date.now();
     const minAgeMs = 2 * 60 * 1000; // skip very fresh orders — customer may still be paying
-    // Look back 7 days (not 24h): if the cron was ever throttled/down, genuinely-paid orders
-    // could sit unpaid for more than a day and must still be recoverable. Re-checking an
-    // already-abandoned order is just one cheap status call, capped by the limit below.
-    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    const maxAgeMs = 24 * 60 * 60 * 1000; // skip stale abandoned orders beyond a day
 
     const stuck = await Order.find({
       paymentMethod: "PhonePe",
@@ -54,7 +51,7 @@ async function handle(req: Request) {
     })
       .select("_id")
       .sort({ createdAt: -1 })
-      .limit(100);
+      .limit(50);
 
     const results: ReconcileResult[] = [];
     for (const o of stuck) {

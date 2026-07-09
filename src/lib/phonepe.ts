@@ -37,27 +37,8 @@ export interface PhonePeV2Config {
   webhookPassword?: string;
 }
 
-/**
- * Decrypt a stored secret without throwing. If BETTER_AUTH_SECRET was rotated (or the
- * ciphertext is malformed) decryptPassword throws — we log clearly and return "" instead
- * of letting the exception bubble up and take down the whole webhook/callback/cron path.
- */
-function safeDecrypt(value: string | undefined | null, label: string): string {
-  if (!value) return "";
-  try {
-    return decryptPassword(value);
-  } catch (err) {
-    console.error(
-      `[phonepe] Failed to decrypt ${label} — BETTER_AUTH_SECRET may have changed since it was saved. Re-enter the value in Admin → Settings.`,
-      (err as Error)?.message,
-    );
-    return "";
-  }
-}
-
 export async function getDecryptedPhonePeConfig(): Promise<PhonePeV2Config | null> {
-  // Deterministic pick if more than one Settings doc ever exists.
-  const config = await Settings.findOne().sort({ _id: 1 });
+  const config = await Settings.findOne();
   const p = config?.payment;
   if (!p) return null;
 
@@ -65,7 +46,7 @@ export async function getDecryptedPhonePeConfig(): Promise<PhonePeV2Config | nul
   const clientId = p.phonepeClientId || process.env.PHONEPE_CLIENT_ID || "";
 
   const clientSecretRaw = p.phonepeClientSecret
-    ? safeDecrypt(p.phonepeClientSecret, "phonepeClientSecret")
+    ? decryptPassword(p.phonepeClientSecret)
     : process.env.PHONEPE_CLIENT_SECRET || "";
 
   if (!merchantId || !clientId || !clientSecretRaw) return null;
@@ -73,7 +54,9 @@ export async function getDecryptedPhonePeConfig(): Promise<PhonePeV2Config | nul
   const env: "UAT" | "PROD" =
     p.phonepeEnv === "PROD" || process.env.PHONEPE_ENV === "PROD" ? "PROD" : "UAT";
 
-  const webhookPasswordRaw = safeDecrypt(p.phonepeWebhookPassword, "phonepeWebhookPassword");
+  const webhookPasswordRaw = p.phonepeWebhookPassword
+    ? decryptPassword(p.phonepeWebhookPassword)
+    : "";
 
   return {
     merchantId,
@@ -136,14 +119,10 @@ export async function getAccessToken(config: PhonePeV2Config): Promise<string> {
   }
 
   const token: string = data.access_token;
-  let expiresAt: number =
+  const expiresAt: number =
     typeof data.expires_at === "number"
       ? data.expires_at
       : now + (typeof data.expires_in === "number" ? data.expires_in : 3600);
-
-  // Normalize: if PhonePe ever returns expires_at in milliseconds, convert to seconds so
-  // the "refresh 60s before expiry" comparison against `now` (seconds) stays correct.
-  if (expiresAt > 1e12) expiresAt = Math.floor(expiresAt / 1000);
 
   tokenCache.set(cacheKey, { token, expiresAt });
   return token;
@@ -287,14 +266,9 @@ export async function fetchPhonePeOrderStatus(
     };
   }
 
-  // Be resilient to shape changes: PhonePe V2 returns a flat `state`, but guard against a
-  // nested `data.state` so a payload tweak never silently defaults every order to FAILED.
-  const state: string = statusData?.state || statusData?.data?.state || "FAILED";
+  const state: string = statusData?.state || "FAILED";
   const phonepeTxnId: string | undefined =
-    statusData?.paymentDetails?.[0]?.transactionId ||
-    statusData?.data?.paymentDetails?.[0]?.transactionId ||
-    statusData?.orderId ||
-    statusData?.data?.orderId;
+    statusData?.paymentDetails?.[0]?.transactionId || statusData?.orderId;
 
   return { ok: true, httpStatus: statusRes.status, state, phonepeTxnId, data: statusData };
 }
