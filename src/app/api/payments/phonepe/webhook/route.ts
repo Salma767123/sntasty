@@ -104,6 +104,23 @@ export async function POST(req: Request) {
     }
 
     revalidatePath("/orders");
+
+    // Retry semantics: a webhook can arrive a moment before PhonePe's own status API flips
+    // to COMPLETED, or the status check can transiently fail. In those non-terminal cases we
+    // return a 5xx so PhonePe REDELIVERS the webhook instead of considering it handled.
+    // Terminal outcomes (paid / genuinely failed / unknown order) return 2xx = done.
+    const retryable =
+      result.outcome === "pending" ||
+      result.outcome === "status_error" ||
+      result.outcome === "config_missing";
+
+    if (retryable) {
+      return NextResponse.json(
+        { success: false, status: "retry", outcome: result.outcome },
+        { status: 503 },
+      );
+    }
+
     return NextResponse.json({ success: true, status: "ok", outcome: result.outcome });
   } catch (error: any) {
     console.error("PhonePe Webhook Handler Error:", error);

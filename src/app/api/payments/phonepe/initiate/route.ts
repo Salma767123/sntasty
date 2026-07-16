@@ -15,6 +15,10 @@ import {
 export async function POST(req: Request) {
   let pendingOrderId: string | null = null;
   let succeeded = false;
+  // True once PhonePe has ACCEPTED the pay request (2xx). From that point a payment session
+  // may exist on PhonePe's side, so we must NOT delete the order even if a later step fails —
+  // the reconciliation cron/webhook can still recover it.
+  let phonepeAccepted = false;
 
   try {
     await connectDB();
@@ -214,6 +218,10 @@ export async function POST(req: Request) {
       );
     }
 
+    // PhonePe returned 2xx — a payment session may now exist; keep the order regardless of
+    // what happens next.
+    phonepeAccepted = true;
+
     const payUrl: string | undefined = phonepeData?.redirectUrl;
     if (!payUrl) {
       console.error("PhonePe pay response missing redirectUrl:", phonepeData);
@@ -237,7 +245,9 @@ export async function POST(req: Request) {
       { status: 500 },
     );
   } finally {
-    if (pendingOrderId && !succeeded) {
+    // Only delete the freshly-created order if we bailed BEFORE PhonePe accepted it. Once
+    // PhonePe has a session, deleting would strand a potentially-real payment with no order.
+    if (pendingOrderId && !succeeded && !phonepeAccepted) {
       try {
         await Order.findByIdAndDelete(pendingOrderId);
       } catch (cleanupErr) {

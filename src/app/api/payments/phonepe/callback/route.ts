@@ -8,7 +8,14 @@ import {
   getAccessToken,
   invalidateAccessToken,
 } from "@/lib/phonepe";
-import { claimOrderPaid, finalizePaidOrder } from "@/lib/payment-finalize";
+import {
+  claimOrderPaid,
+  decrementOrderStock,
+  applyCouponUsage,
+  claimInvoiceEmail,
+  sendOrderEmails,
+  releaseInvoiceEmailClaim,
+} from "@/lib/payment-finalize";
 
 export async function POST(req: Request) {
   try {
@@ -94,9 +101,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const order = orderId
-      ? await Order.findById(orderId)
-      : await Order.findOne({ "paymentResult.id": merchantOrderId });
+    // Prefer the explicit orderId, but fall back to the merchantOrderId lookup if it doesn't
+    // resolve (bad/truncated orderId shouldn't dead-end a payment we can still find by mtid).
+    let order = orderId ? await Order.findById(orderId).catch(() => null) : null;
+    if (!order) {
+      order = await Order.findOne({ "paymentResult.id": merchantOrderId });
+    }
 
     if (!order) {
       return NextResponse.json({ success: false, error: "Order not found" }, { status: 404 });
@@ -121,11 +131,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const state: string = statusData?.state || "FAILED";
+    // Guard against a nested `data.state` so a payload shape change never silently
+    // defaults a genuinely COMPLETED payment to FAILED.
+    const state: string = statusData?.state || statusData?.data?.state || "FAILED";
     // V2: paymentDetails is an array; first txn is the latest attempt
     const phonepeTxnId: string | undefined =
       statusData?.paymentDetails?.[0]?.transactionId ||
-      statusData?.orderId;
+      statusData?.data?.paymentDetails?.[0]?.transactionId ||
+      statusData?.orderId ||
+      statusData?.data?.orderId;
 
     // PENDING — async settlement; tell client to retry
     if (state === "PENDING") {
@@ -158,22 +172,33 @@ export async function POST(req: Request) {
       });
     }
 
-    const wonClaim = await claimOrderPaid(String(order._id), {
+    await claimOrderPaid(String(order._id), {
       id: phonepeTxnId || merchantOrderId,
       status: "completed",
       email_address: order.shippingAddress?.email || "",
     });
 
-    if (wonClaim) {
-      finalizePaidOrder(String(order._id)).catch((err) =>
-        console.error("[PhonePe callback] finalize error:", err),
-      );
-    } else {
-      // Defensive: webhook may have won; still run idempotent finalize in case it missed steps
-      finalizePaidOrder(String(order._id)).catch((err) =>
-        console.error("[PhonePe callback] defensive finalize error:", err),
-      );
-    }
+    // Await the fast, critical side effects (stock + coupon) so they can't be lost if the
+    // process is frozen/killed right after the response. Both are atomic + idempotent, so
+    // running them here regardless of who won the paid-claim is safe (no-op if already done).
+    const orderIdStr = String(order._id);
+    await Promise.allSettled([
+      decrementOrderStock(orderIdStr),
+      applyCouponUsage(orderIdStr),
+    ]);
+
+    // Invoice email is slow (PDF render) — keep it off the response path. Idempotent claim
+    // guarantees a single send across callback/webhook/cron.
+    (async () => {
+      const shouldSend = await claimInvoiceEmail(orderIdStr);
+      if (!shouldSend) return;
+      try {
+        await sendOrderEmails(orderIdStr);
+      } catch (err) {
+        console.error("[PhonePe callback] invoice email error:", err);
+        await releaseInvoiceEmailClaim(orderIdStr);
+      }
+    })();
 
     invalidateCache(CACHE_KEYS.PRODUCTS, CACHE_KEYS.FEATURED, CACHE_KEYS.PRODUCT_SLUG);
     revalidatePath("/orders");
