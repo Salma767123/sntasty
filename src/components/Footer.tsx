@@ -221,7 +221,7 @@ export default function Footer() {
           <div className="flex justify-center items-center text-center border-t border-[#234d1b]/10 pt-8">
             <p className="text-[#234d1b]/40 text-xs font-bold uppercase tracking-widest">
               © {new Date().getFullYear()} Sai Nandhini Tasty World. All Rights
-              Reserved. <span className="text-red-400">&#10084;</span> Developed by <a href="https://www.mntfuture.com" target="_blank" rel="noopener noreferrer" className="hover:text-[#234d1b]/70 transition-colors">MnT</a>
+              Reserved. Developed by <a href="https://clickagain.in" target="_blank" rel="noopener noreferrer" className="hover:text-[#234d1b]/70 transition-colors">Click Again</a> <span className="text-red-400">&#10084;</span>
             </p>
           </div>
         </div>
